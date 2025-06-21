@@ -1,91 +1,109 @@
-import { User, UserModel } from '../models/User';
-import { mockUsers, mockRoles } from '../data/mockData';
+import api from '../services/api';
+import { User, Role } from '../models/User';
+
+export interface CreateUserRequest {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  roleId: number;
+}
+
+export interface UpdateUserRequest {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  roleId?: number;
+}
 
 export class UserController {
-  private users: User[] = [...mockUsers];
-
-  getAllUsers(): User[] {
-    return this.users;
+  async getAllUsers(): Promise<{ success: boolean; users?: User[]; errors?: string[] }> {
+    try {
+      const response = await api.get<User[]>('/api/users');
+      return { success: true, users: response.data };
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Erro ao carregar usuários';
+      return { success: false, errors: [errorMessage] };
+    }
   }
 
-  getUserById(id: number): User | null {
-    return this.users.find(user => user.id === id) || null;
+  async getUserById(id: number): Promise<{ success: boolean; user?: User; errors?: string[] }> {
+    try {
+      const response = await api.get<User>(`/api/users/${id}`);
+      return { success: true, user: response.data };
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Usuário não encontrado';
+      return { success: false, errors: [errorMessage] };
+    }
   }
 
-  createUser(userData: Omit<User, 'id' | 'createdAt'>): { success: boolean; user?: User; errors?: string[] } {
-    const errors = UserModel.validate(userData);
-    
-    if (errors.length > 0) {
+  async createUser(userData: CreateUserRequest): Promise<{ success: boolean; user?: User; errors?: string[] }> {
+    try {
+      const response = await api.post<User>('/api/users', userData);
+      return { success: true, user: response.data };
+    } catch (error: any) {
+      const errors = this.extractErrors(error);
       return { success: false, errors };
     }
-
-    if (this.users.some(user => user.email === userData.email)) {
-      return { success: false, errors: ['Email já está em uso'] };
-    }
-
-    const newUser: User = {
-      ...userData,
-      id: Math.max(...this.users.map(u => u.id)) + 1,
-      createdAt: new Date().toISOString().split('T')[0]
-    };
-
-    this.users.push(newUser);
-    return { success: true, user: newUser };
   }
 
-  updateUser(id: number, userData: Partial<User>): { success: boolean; user?: User; errors?: string[] } {
-    const userIndex = this.users.findIndex(user => user.id === id);
-    
-    if (userIndex === -1) {
-      return { success: false, errors: ['Usuário não encontrado'] };
-    }
-
-    const errors = UserModel.validate({ ...this.users[userIndex], ...userData });
-    
-    if (errors.length > 0) {
+  async updateUser(id: number, userData: UpdateUserRequest): Promise<{ success: boolean; user?: User; errors?: string[] }> {
+    try {
+      const response = await api.put<User>(`/api/users/${id}`, userData);
+      return { success: true, user: response.data };
+    } catch (error: any) {
+      const errors = this.extractErrors(error);
       return { success: false, errors };
     }
+  }
 
-    if (userData.email && this.users.some(user => user.email === userData.email && user.id !== id)) {
-      return { success: false, errors: ['Email já está em uso'] };
+  async deleteUser(id: number): Promise<{ success: boolean; errors?: string[] }> {
+    try {
+      await api.delete(`/api/users/${id}`);
+      return { success: true };
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Erro ao excluir usuário';
+      return { success: false, errors: [errorMessage] };
     }
-
-    this.users[userIndex] = { ...this.users[userIndex], ...userData };
-    return { success: true, user: this.users[userIndex] };
   }
 
-  deleteUser(id: number): { success: boolean; errors?: string[] } {
-    const userIndex = this.users.findIndex(user => user.id === id);
-    
-    if (userIndex === -1) {
-      return { success: false, errors: ['Usuário não encontrado'] };
+  async toggleUserStatus(id: number): Promise<{ success: boolean; user?: User; errors?: string[] }> {
+    try {
+      const response = await api.patch<User>(`/api/users/${id}/status`);
+      return { success: true, user: response.data };
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Erro ao atualizar status do usuário';
+      return { success: false, errors: [errorMessage] };
     }
-
-    this.users.splice(userIndex, 1);
-    return { success: true };
   }
 
-  toggleUserStatus(id: number): { success: boolean; user?: User; errors?: string[] } {
-    const userIndex = this.users.findIndex(user => user.id === id);
-    
-    if (userIndex === -1) {
-      return { success: false, errors: ['Usuário não encontrado'] };
+  async searchUsers(term: string): Promise<{ success: boolean; users?: User[]; errors?: string[] }> {
+    try {
+      const response = await api.get<User[]>(`/api/users?search=${encodeURIComponent(term)}`);
+      return { success: true, users: response.data };
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Erro ao buscar usuários';
+      return { success: false, errors: [errorMessage] };
     }
-
-    this.users[userIndex].isActive = !this.users[userIndex].isActive;
-    return { success: true, user: this.users[userIndex] };
   }
 
-  searchUsers(term: string): User[] {
-    const searchTerm = term.toLowerCase();
-    return this.users.filter(user =>
-      user.firstName.toLowerCase().includes(searchTerm) ||
-      user.lastName.toLowerCase().includes(searchTerm) ||
-      user.email.toLowerCase().includes(searchTerm)
-    );
+  async getRoles(): Promise<{ success: boolean; roles?: Role[]; errors?: string[] }> {
+    try {
+      const response = await api.get<Role[]>('/api/roles');
+      return { success: true, roles: response.data };
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Erro ao carregar cargos';
+      return { success: false, errors: [errorMessage] };
+    }
   }
 
-  getRoles() {
-    return mockRoles;
+  private extractErrors(error: any): string[] {
+    if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+      return error.response.data.errors;
+    }
+    if (error.response?.data?.message) {
+      return [error.response.data.message];
+    }
+    return ['Erro interno do servidor'];
   }
 }

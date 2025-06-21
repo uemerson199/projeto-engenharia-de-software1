@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
-import { Plus, Search, Edit, Trash2, Tag } from 'lucide-react';
-import { Category } from '../types';
-import { mockCategories } from '../data/mockData';
+import React, { useState, useEffect } from 'react';
+import { Plus, Search, Edit, Trash2, Tag, Loader2 } from 'lucide-react';
+import { CategoryController } from '../controllers/CategoryController';
+import { Category } from '../models/Category';
+import ErrorMessage from '../views/components/ErrorMessage';
+import SuccessMessage from '../views/components/SuccessMessage';
 
 const Categories: React.FC = () => {
-  const [categories, setCategories] = useState<Category[]>(mockCategories);
+  const [categoryController] = useState(() => new CategoryController());
+  const [categories, setCategories] = useState<Category[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
@@ -12,32 +15,71 @@ const Categories: React.FC = () => {
     name: '',
     description: ''
   });
+  const [errors, setErrors] = useState<string[]>([]);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isPageLoading, setIsPageLoading] = useState(true);
+
+  useEffect(() => {
+    loadCategories();
+  }, []);
+
+  const loadCategories = async () => {
+    setIsPageLoading(true);
+    const result = await categoryController.getAllCategories();
+    if (result.success && result.categories) {
+      setCategories(result.categories);
+    } else {
+      setErrors(result.errors || ['Erro ao carregar categorias']);
+    }
+    setIsPageLoading(false);
+  };
+
+  const handleSearch = async (term: string) => {
+    setSearchTerm(term);
+    if (term.trim()) {
+      const result = await categoryController.searchCategories(term);
+      if (result.success && result.categories) {
+        setCategories(result.categories);
+      }
+    } else {
+      loadCategories();
+    }
+  };
 
   const filteredCategories = categories.filter(category =>
     category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     category.description.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
+    setErrors([]);
 
-    if (editingCategory) {
-      setCategories(categories.map(category =>
-        category.id === editingCategory.id
-          ? { ...category, ...formData }
-          : category
-      ));
-    } else {
-      const newCategory: Category = {
-        id: Math.max(...categories.map(c => c.id)) + 1,
-        ...formData
-      };
-      setCategories([...categories, newCategory]);
+    try {
+      let result;
+      if (editingCategory) {
+        result = await categoryController.updateCategory(editingCategory.id, formData);
+      } else {
+        result = await categoryController.createCategory(formData);
+      }
+
+      if (result.success) {
+        setSuccessMessage(editingCategory ? 'Categoria atualizada com sucesso!' : 'Categoria criada com sucesso!');
+        setShowModal(false);
+        setEditingCategory(null);
+        setFormData({ name: '', description: '' });
+        await loadCategories();
+        setTimeout(() => setSuccessMessage(''), 3000);
+      } else {
+        setErrors(result.errors || ['Erro desconhecido']);
+      }
+    } catch (error) {
+      setErrors(['Erro interno do sistema']);
+    } finally {
+      setIsLoading(false);
     }
-
-    setShowModal(false);
-    setEditingCategory(null);
-    setFormData({ name: '', description: '' });
   };
 
   const handleEdit = (category: Category) => {
@@ -46,20 +88,38 @@ const Categories: React.FC = () => {
       name: category.name,
       description: category.description
     });
+    setErrors([]);
     setShowModal(true);
   };
 
-  const handleDelete = (id: number) => {
+  const handleDelete = async (id: number) => {
     if (confirm('Tem certeza que deseja excluir esta categoria?')) {
-      setCategories(categories.filter(category => category.id !== id));
+      const result = await categoryController.deleteCategory(id);
+      if (result.success) {
+        setSuccessMessage('Categoria excluída com sucesso!');
+        await loadCategories();
+        setTimeout(() => setSuccessMessage(''), 3000);
+      } else {
+        setErrors(result.errors || ['Erro ao excluir categoria']);
+      }
     }
   };
 
   const openModal = () => {
     setEditingCategory(null);
     setFormData({ name: '', description: '' });
+    setErrors([]);
     setShowModal(true);
   };
+
+  if (isPageLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        <span className="ml-2 text-gray-600">Carregando categorias...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -77,6 +137,9 @@ const Categories: React.FC = () => {
         </button>
       </div>
 
+      {successMessage && <SuccessMessage message={successMessage} />}
+      {errors.length > 0 && <ErrorMessage errors={errors} />}
+
       {/* Search */}
       <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
         <div className="relative">
@@ -85,7 +148,7 @@ const Categories: React.FC = () => {
             type="text"
             placeholder="Buscar categorias..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => handleSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
@@ -147,6 +210,8 @@ const Categories: React.FC = () => {
               {editingCategory ? 'Editar Categoria' : 'Nova Categoria'}
             </h2>
             
+            {errors.length > 0 && <ErrorMessage errors={errors} className="mb-4" />}
+            
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -159,6 +224,7 @@ const Categories: React.FC = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Ex: Bebidas, Limpeza, Alimentação"
                   required
+                  disabled={isLoading}
                 />
               </div>
 
@@ -172,6 +238,7 @@ const Categories: React.FC = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   rows={3}
                   placeholder="Descreva o tipo de produtos desta categoria..."
+                  disabled={isLoading}
                 />
               </div>
 
@@ -180,14 +247,17 @@ const Categories: React.FC = () => {
                   type="button"
                   onClick={() => setShowModal(false)}
                   className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                  disabled={isLoading}
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center"
+                  disabled={isLoading}
                 >
-                  {editingCategory ? 'Salvar' : 'Criar'}
+                  {isLoading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                  {isLoading ? 'Salvando...' : (editingCategory ? 'Salvar' : 'Criar')}
                 </button>
               </div>
             </form>

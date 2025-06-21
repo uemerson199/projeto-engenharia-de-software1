@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Edit, Trash2, UserCheck, UserX } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, UserCheck, UserX, Loader2 } from 'lucide-react';
 import { UserController } from '../../controllers/UserController';
-import { User } from '../../models/User';
+import { User, Role } from '../../models/User';
 import UserForm from '../components/UserForm';
 import Modal from '../components/Modal';
 import ErrorMessage from '../components/ErrorMessage';
@@ -10,24 +10,54 @@ import SuccessMessage from '../components/SuccessMessage';
 const UsersView: React.FC = () => {
   const [userController] = useState(() => new UserController());
   const [users, setUsers] = useState<User[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
   const [successMessage, setSuccessMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isPageLoading, setIsPageLoading] = useState(true);
 
   useEffect(() => {
-    loadUsers();
+    loadInitialData();
   }, []);
 
-  const loadUsers = () => {
-    setUsers(userController.getAllUsers());
+  const loadInitialData = async () => {
+    setIsPageLoading(true);
+    await Promise.all([loadUsers(), loadRoles()]);
+    setIsPageLoading(false);
   };
 
-  const filteredUsers = searchTerm 
-    ? userController.searchUsers(searchTerm)
-    : users;
+  const loadUsers = async () => {
+    const result = await userController.getAllUsers();
+    if (result.success && result.users) {
+      setUsers(result.users);
+    } else {
+      setErrors(result.errors || ['Erro ao carregar usuários']);
+    }
+  };
+
+  const loadRoles = async () => {
+    const result = await userController.getRoles();
+    if (result.success && result.roles) {
+      setRoles(result.roles);
+    } else {
+      setErrors(result.errors || ['Erro ao carregar cargos']);
+    }
+  };
+
+  const handleSearch = async (term: string) => {
+    setSearchTerm(term);
+    if (term.trim()) {
+      const result = await userController.searchUsers(term);
+      if (result.success && result.users) {
+        setUsers(result.users);
+      }
+    } else {
+      loadUsers();
+    }
+  };
 
   const handleSubmit = async (userData: any) => {
     setIsLoading(true);
@@ -36,21 +66,16 @@ const UsersView: React.FC = () => {
     try {
       let result;
       if (editingUser) {
-        result = userController.updateUser(editingUser.id, userData);
+        result = await userController.updateUser(editingUser.id, userData);
       } else {
-        const selectedRole = userController.getRoles().find(r => r.id === userData.roleId)!;
-        result = userController.createUser({
-          ...userData,
-          role: selectedRole,
-          isActive: true
-        });
+        result = await userController.createUser(userData);
       }
 
       if (result.success) {
         setSuccessMessage(editingUser ? 'Usuário atualizado com sucesso!' : 'Usuário criado com sucesso!');
         setShowModal(false);
         setEditingUser(null);
-        loadUsers();
+        await loadUsers();
         setTimeout(() => setSuccessMessage(''), 3000);
       } else {
         setErrors(result.errors || ['Erro desconhecido']);
@@ -68,12 +93,12 @@ const UsersView: React.FC = () => {
     setShowModal(true);
   };
 
-  const handleDelete = (id: number) => {
+  const handleDelete = async (id: number) => {
     if (confirm('Tem certeza que deseja excluir este usuário?')) {
-      const result = userController.deleteUser(id);
+      const result = await userController.deleteUser(id);
       if (result.success) {
         setSuccessMessage('Usuário excluído com sucesso!');
-        loadUsers();
+        await loadUsers();
         setTimeout(() => setSuccessMessage(''), 3000);
       } else {
         setErrors(result.errors || ['Erro ao excluir usuário']);
@@ -81,11 +106,11 @@ const UsersView: React.FC = () => {
     }
   };
 
-  const toggleUserStatus = (id: number) => {
-    const result = userController.toggleUserStatus(id);
+  const toggleUserStatus = async (id: number) => {
+    const result = await userController.toggleUserStatus(id);
     if (result.success) {
       setSuccessMessage('Status do usuário atualizado!');
-      loadUsers();
+      await loadUsers();
       setTimeout(() => setSuccessMessage(''), 3000);
     } else {
       setErrors(result.errors || ['Erro ao atualizar status']);
@@ -97,6 +122,15 @@ const UsersView: React.FC = () => {
     setErrors([]);
     setShowModal(true);
   };
+
+  if (isPageLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        <span className="ml-2 text-gray-600">Carregando usuários...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -125,7 +159,7 @@ const UsersView: React.FC = () => {
             type="text"
             placeholder="Buscar por nome ou email..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => handleSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
@@ -158,7 +192,7 @@ const UsersView: React.FC = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredUsers.map((user) => (
+              {users.map((user) => (
                 <tr key={user.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
@@ -228,6 +262,21 @@ const UsersView: React.FC = () => {
         </div>
       </div>
 
+      {/* Empty State */}
+      {users.length === 0 && !isPageLoading && (
+        <div className="text-center py-12">
+          <div className="text-gray-400 mb-4">
+            <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+            </svg>
+          </div>
+          <h3 className="mt-2 text-sm font-medium text-gray-900">Nenhum usuário encontrado</h3>
+          <p className="mt-1 text-sm text-gray-500">
+            {searchTerm ? 'Tente ajustar sua busca.' : 'Comece criando um novo funcionário.'}
+          </p>
+        </div>
+      )}
+
       {/* Modal */}
       <Modal
         isOpen={showModal}
@@ -237,7 +286,7 @@ const UsersView: React.FC = () => {
         {errors.length > 0 && <ErrorMessage errors={errors} className="mb-4" />}
         <UserForm
           user={editingUser}
-          roles={userController.getRoles()}
+          roles={roles}
           onSubmit={handleSubmit}
           onCancel={() => setShowModal(false)}
           isLoading={isLoading}
