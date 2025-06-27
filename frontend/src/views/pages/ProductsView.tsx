@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Edit, Trash2, Package, AlertTriangle } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Package, AlertTriangle, Loader2 } from 'lucide-react';
 import { ProductController } from '../../controllers/ProductController';
 import { Product, ProductModel } from '../../models/Product';
+import { Category } from '../../models/Category';
+import { Supplier } from '../../models/Supplier';
 import ProductForm from '../components/ProductForm';
 import Modal from '../components/Modal';
 import ErrorMessage from '../components/ErrorMessage';
@@ -10,6 +12,8 @@ import SuccessMessage from '../components/SuccessMessage';
 const ProductsView: React.FC = () => {
   const [productController] = useState(() => new ProductController());
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -17,49 +21,71 @@ const ProductsView: React.FC = () => {
   const [errors, setErrors] = useState<string[]>([]);
   const [successMessage, setSuccessMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isPageLoading, setIsPageLoading] = useState(true);
 
   useEffect(() => {
-    loadProducts();
+    loadInitialData();
   }, []);
 
-  const loadProducts = () => {
-    setProducts(productController.getAllProducts());
+  const loadInitialData = async () => {
+    setIsPageLoading(true);
+    await Promise.all([loadProducts(), loadCategories(), loadSuppliers()]);
+    setIsPageLoading(false);
   };
 
-  const filteredProducts = products.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         product.barcode.includes(searchTerm);
-    const matchesCategory = !categoryFilter || product.category.id.toString() === categoryFilter;
-    return matchesSearch && matchesCategory;
-  });
+  const loadProducts = async () => {
+    const result = await productController.getAllProducts();
+    if (result.success && result.products) {
+      setProducts(result.products);
+    } else {
+      setErrors(result.errors || ['Erro ao carregar produtos']);
+    }
+  };
+
+  const loadCategories = async () => {
+    const result = await productController.getCategories();
+    if (result.success && result.categories) {
+      setCategories(result.categories);
+    }
+  };
+
+  const loadSuppliers = async () => {
+    const result = await productController.getSuppliers();
+    if (result.success && result.suppliers) {
+      setSuppliers(result.suppliers);
+    }
+  };
+
+  const handleSearch = async (term: string) => {
+    setSearchTerm(term);
+    if (term.trim()) {
+      const categoryId = categoryFilter ? parseInt(categoryFilter) : undefined;
+      const result = await productController.searchProducts(term, categoryId);
+      if (result.success && result.products) {
+        setProducts(result.products);
+      }
+    } else {
+      loadProducts();
+    }
+  };
 
   const handleSubmit = async (productData: any) => {
     setIsLoading(true);
     setErrors([]);
     
     try {
-      const selectedCategory = productController.getCategories().find(c => c.id === productData.categoryId)!;
-      const selectedSupplier = productController.getSuppliers().find(s => s.id === productData.supplierId)!;
-
-      const productWithRelations = {
-        ...productData,
-        category: selectedCategory,
-        supplier: selectedSupplier,
-        isActive: true
-      };
-
       let result;
       if (editingProduct) {
-        result = productController.updateProduct(editingProduct.id, productWithRelations);
+        result = await productController.updateProduct(editingProduct.id, productData);
       } else {
-        result = productController.createProduct(productWithRelations);
+        result = await productController.createProduct(productData);
       }
 
       if (result.success) {
         setSuccessMessage(editingProduct ? 'Produto atualizado com sucesso!' : 'Produto criado com sucesso!');
         setShowModal(false);
         setEditingProduct(null);
-        loadProducts();
+        await loadProducts();
         setTimeout(() => setSuccessMessage(''), 3000);
       } else {
         setErrors(result.errors || ['Erro desconhecido']);
@@ -77,12 +103,12 @@ const ProductsView: React.FC = () => {
     setShowModal(true);
   };
 
-  const handleDelete = (id: number) => {
+  const handleDelete = async (id: number) => {
     if (confirm('Tem certeza que deseja excluir este produto?')) {
-      const result = productController.deleteProduct(id);
+      const result = await productController.deleteProduct(id);
       if (result.success) {
         setSuccessMessage('Produto excluído com sucesso!');
-        loadProducts();
+        await loadProducts();
         setTimeout(() => setSuccessMessage(''), 3000);
       } else {
         setErrors(result.errors || ['Erro ao excluir produto']);
@@ -90,10 +116,10 @@ const ProductsView: React.FC = () => {
     }
   };
 
-  const adjustStock = (id: number, adjustment: number) => {
-    const result = productController.adjustStock(id, adjustment);
+  const adjustStock = async (id: number, adjustment: number) => {
+    const result = await productController.adjustStock(id, adjustment);
     if (result.success) {
-      loadProducts();
+      await loadProducts();
     } else {
       setErrors(result.errors || ['Erro ao ajustar estoque']);
       setTimeout(() => setErrors([]), 3000);
@@ -105,6 +131,15 @@ const ProductsView: React.FC = () => {
     setErrors([]);
     setShowModal(true);
   };
+
+  if (isPageLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        <span className="ml-2 text-gray-600">Carregando produtos...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -134,7 +169,7 @@ const ProductsView: React.FC = () => {
               type="text"
               placeholder="Buscar por nome ou código de barras..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => handleSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
@@ -144,7 +179,7 @@ const ProductsView: React.FC = () => {
             className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="">Todas as categorias</option>
-            {productController.getCategories().map(category => (
+            {categories.map(category => (
               <option key={category.id} value={category.id}>
                 {category.name}
               </option>
@@ -183,7 +218,7 @@ const ProductsView: React.FC = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredProducts.map((product) => (
+              {products.map((product) => (
                 <tr key={product.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
@@ -265,6 +300,17 @@ const ProductsView: React.FC = () => {
         </div>
       </div>
 
+      {/* Empty State */}
+      {products.length === 0 && !isPageLoading && (
+        <div className="text-center py-12">
+          <Package className="mx-auto h-12 w-12 text-gray-400" />
+          <h3 className="mt-2 text-sm font-medium text-gray-900">Nenhum produto encontrado</h3>
+          <p className="mt-1 text-sm text-gray-500">
+            {searchTerm ? 'Tente ajustar sua busca.' : 'Comece criando um novo produto.'}
+          </p>
+        </div>
+      )}
+
       {/* Modal */}
       <Modal
         isOpen={showModal}
@@ -275,8 +321,8 @@ const ProductsView: React.FC = () => {
         {errors.length > 0 && <ErrorMessage errors={errors} className="mb-4" />}
         <ProductForm
           product={editingProduct}
-          categories={productController.getCategories()}
-          suppliers={productController.getSuppliers()}
+          categories={categories}
+          suppliers={suppliers}
           onSubmit={handleSubmit}
           onCancel={() => setShowModal(false)}
           isLoading={isLoading}

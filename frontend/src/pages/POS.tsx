@@ -1,15 +1,40 @@
-import React, { useState } from 'react';
-import { Search, ShoppingCart, Trash2, CreditCard, Banknote, Smartphone } from 'lucide-react';
-import { Product, CartItem } from '../types';
-import { mockProducts } from '../data/mockData';
+import React, { useState, useEffect } from 'react';
+import { Search, ShoppingCart, Trash2, CreditCard, Banknote, Smartphone, Loader2 } from 'lucide-react';
+import { ProductController } from '../controllers/ProductController';
+import { SaleController } from '../controllers/SaleController';
+import { Product } from '../models/Product';
+import { CartItem } from '../models/Sale';
 import { useAuth } from '../context/AuthContext';
+import ErrorMessage from '../views/components/ErrorMessage';
 
 const POS: React.FC = () => {
   const { user } = useAuth();
+  const [productController] = useState(() => new ProductController());
+  const [saleController] = useState(() => new SaleController());
+  
+  const [products, setProducts] = useState<Product[]>([]);
   const [barcode, setBarcode] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState('DINHEIRO');
   const [showPayment, setShowPayment] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isPageLoading, setIsPageLoading] = useState(true);
+  const [errors, setErrors] = useState<string[]>([]);
+
+  useEffect(() => {
+    loadProducts();
+  }, []);
+
+  const loadProducts = async () => {
+    setIsPageLoading(true);
+    const result = await productController.getAllProducts();
+    if (result.success && result.products) {
+      setProducts(result.products.filter(p => p.stockQuantity > 0));
+    } else {
+      setErrors(result.errors || ['Erro ao carregar produtos']);
+    }
+    setIsPageLoading(false);
+  };
 
   const addToCart = (product: Product) => {
     const existingItem = cart.find(item => item.product.id === product.id);
@@ -46,15 +71,19 @@ const POS: React.FC = () => {
     ));
   };
 
-  const handleBarcodeSubmit = (e: React.FormEvent) => {
+  const handleBarcodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const product = mockProducts.find(p => p.barcode === barcode);
+    if (!barcode.trim()) return;
+
+    const result = await productController.getProductByBarcode(barcode);
     
-    if (product) {
-      addToCart(product);
+    if (result.success && result.product) {
+      addToCart(result.product);
       setBarcode('');
+      setErrors([]);
     } else {
-      alert('Produto não encontrado!');
+      setErrors(['Produto não encontrado!']);
+      setTimeout(() => setErrors([]), 3000);
     }
   };
 
@@ -64,17 +93,34 @@ const POS: React.FC = () => {
 
   const handleFinalizeSale = () => {
     if (cart.length === 0) {
-      alert('Adicione produtos ao carrinho antes de finalizar a venda!');
+      setErrors(['Adicione produtos ao carrinho antes de finalizar a venda!']);
+      setTimeout(() => setErrors([]), 3000);
       return;
     }
     setShowPayment(true);
   };
 
-  const completeSale = () => {
-    alert(`Venda finalizada com sucesso!\nTotal: R$ ${getTotalAmount().toFixed(2)}\nPagamento: ${paymentMethod}`);
-    setCart([]);
-    setShowPayment(false);
-    setPaymentMethod('DINHEIRO');
+  const completeSale = async () => {
+    setIsLoading(true);
+    setErrors([]);
+
+    try {
+      const result = await saleController.createSale(cart, paymentMethod);
+      
+      if (result.success) {
+        alert(`Venda finalizada com sucesso!\nTotal: R$ ${getTotalAmount().toFixed(2)}\nPagamento: ${paymentMethod}`);
+        setCart([]);
+        setShowPayment(false);
+        setPaymentMethod('DINHEIRO');
+        await loadProducts(); // Reload to update stock
+      } else {
+        setErrors(result.errors || ['Erro ao finalizar venda']);
+      }
+    } catch (error) {
+      setErrors(['Erro interno do sistema']);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const clearCart = () => {
@@ -83,12 +129,24 @@ const POS: React.FC = () => {
     }
   };
 
+  if (isPageLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        <span className="ml-2 text-gray-600">Carregando produtos...</span>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">PDV - Ponto de Venda</h1>
         <p className="text-gray-600">Operador: {user?.firstName} {user?.lastName}</p>
       </div>
+
+      {/* Error Messages */}
+      {errors.length > 0 && <ErrorMessage errors={errors} className="mb-4" />}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
         {/* Product Search */}
@@ -119,7 +177,7 @@ const POS: React.FC = () => {
           <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Produtos Disponíveis</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
-              {mockProducts.filter(p => p.stockQuantity > 0).map((product) => (
+              {products.map((product) => (
                 <div
                   key={product.id}
                   onClick={() => addToCart(product)}
@@ -265,14 +323,17 @@ const POS: React.FC = () => {
               <button
                 onClick={() => setShowPayment(false)}
                 className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                disabled={isLoading}
               >
                 Cancelar
               </button>
               <button
                 onClick={completeSale}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center"
+                disabled={isLoading}
               >
-                Confirmar Pagamento
+                {isLoading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                {isLoading ? 'Processando...' : 'Confirmar Pagamento'}
               </button>
             </div>
           </div>

@@ -1,109 +1,150 @@
-import { Product, ProductModel } from '../models/Product';
-import { mockProducts, mockCategories, mockSuppliers } from '../data/mockData';
+import api from '../services/api';
+import { Product } from '../models/Product';
+import { Category } from '../models/Category';
+import { Supplier } from '../models/Supplier';
+
+export interface CreateProductRequest {
+  name: string;
+  description: string;
+  price: number;
+  stockQuantity: number;
+  barcode: string;
+  categoryId: number;
+  supplierId: number;
+}
+
+export interface UpdateProductRequest {
+  name?: string;
+  description?: string;
+  price?: number;
+  stockQuantity?: number;
+  barcode?: string;
+  categoryId?: number;
+  supplierId?: number;
+}
 
 export class ProductController {
-  private products: Product[] = [...mockProducts];
-
-  getAllProducts(): Product[] {
-    return this.products;
+  async getAllProducts(): Promise<{ success: boolean; products?: Product[]; errors?: string[] }> {
+    try {
+      const response = await api.get<Product[]>('/api/products');
+      return { success: true, products: response.data };
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Erro ao carregar produtos';
+      return { success: false, errors: [errorMessage] };
+    }
   }
 
-  getProductById(id: number): Product | null {
-    return this.products.find(product => product.id === id) || null;
+  async getProductById(id: number): Promise<{ success: boolean; product?: Product; errors?: string[] }> {
+    try {
+      const response = await api.get<Product>(`/api/products/${id}`);
+      return { success: true, product: response.data };
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Produto não encontrado';
+      return { success: false, errors: [errorMessage] };
+    }
   }
 
-  getProductByBarcode(barcode: string): Product | null {
-    return this.products.find(product => product.barcode === barcode) || null;
+  async getProductByBarcode(barcode: string): Promise<{ success: boolean; product?: Product; errors?: string[] }> {
+    try {
+      const response = await api.get<Product>(`/api/products/barcode/${barcode}`);
+      return { success: true, product: response.data };
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Produto não encontrado';
+      return { success: false, errors: [errorMessage] };
+    }
   }
 
-  createProduct(productData: Omit<Product, 'id'>): { success: boolean; product?: Product; errors?: string[] } {
-    const errors = ProductModel.validate(productData);
-    
-    if (errors.length > 0) {
+  async createProduct(productData: CreateProductRequest): Promise<{ success: boolean; product?: Product; errors?: string[] }> {
+    try {
+      const response = await api.post<Product>('/api/products', productData);
+      return { success: true, product: response.data };
+    } catch (error: any) {
+      const errors = this.extractErrors(error);
       return { success: false, errors };
     }
-
-    if (this.products.some(product => product.barcode === productData.barcode)) {
-      return { success: false, errors: ['Código de barras já está em uso'] };
-    }
-
-    const newProduct: Product = {
-      ...productData,
-      id: Math.max(...this.products.map(p => p.id)) + 1
-    };
-
-    this.products.push(newProduct);
-    return { success: true, product: newProduct };
   }
 
-  updateProduct(id: number, productData: Partial<Product>): { success: boolean; product?: Product; errors?: string[] } {
-    const productIndex = this.products.findIndex(product => product.id === id);
-    
-    if (productIndex === -1) {
-      return { success: false, errors: ['Produto não encontrado'] };
-    }
-
-    const errors = ProductModel.validate({ ...this.products[productIndex], ...productData });
-    
-    if (errors.length > 0) {
+  async updateProduct(id: number, productData: UpdateProductRequest): Promise<{ success: boolean; product?: Product; errors?: string[] }> {
+    try {
+      const response = await api.put<Product>(`/api/products/${id}`, productData);
+      return { success: true, product: response.data };
+    } catch (error: any) {
+      const errors = this.extractErrors(error);
       return { success: false, errors };
     }
+  }
 
-    if (productData.barcode && this.products.some(product => product.barcode === productData.barcode && product.id !== id)) {
-      return { success: false, errors: ['Código de barras já está em uso'] };
+  async deleteProduct(id: number): Promise<{ success: boolean; errors?: string[] }> {
+    try {
+      await api.delete(`/api/products/${id}`);
+      return { success: true };
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Erro ao excluir produto';
+      return { success: false, errors: [errorMessage] };
     }
-
-    this.products[productIndex] = { ...this.products[productIndex], ...productData };
-    return { success: true, product: this.products[productIndex] };
   }
 
-  deleteProduct(id: number): { success: boolean; errors?: string[] } {
-    const productIndex = this.products.findIndex(product => product.id === id);
-    
-    if (productIndex === -1) {
-      return { success: false, errors: ['Produto não encontrado'] };
+  async adjustStock(id: number, adjustment: number): Promise<{ success: boolean; product?: Product; errors?: string[] }> {
+    try {
+      const response = await api.patch<Product>(`/api/products/${id}/stock?adjustment=${adjustment}`);
+      return { success: true, product: response.data };
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Erro ao ajustar estoque';
+      return { success: false, errors: [errorMessage] };
     }
-
-    this.products.splice(productIndex, 1);
-    return { success: true };
   }
 
-  adjustStock(id: number, adjustment: number): { success: boolean; product?: Product; errors?: string[] } {
-    const productIndex = this.products.findIndex(product => product.id === id);
-    
-    if (productIndex === -1) {
-      return { success: false, errors: ['Produto não encontrado'] };
+  async searchProducts(term: string, categoryId?: number): Promise<{ success: boolean; products?: Product[]; errors?: string[] }> {
+    try {
+      let url = `/api/products?search=${encodeURIComponent(term)}`;
+      if (categoryId) {
+        url += `&categoryId=${categoryId}`;
+      }
+      const response = await api.get<Product[]>(url);
+      return { success: true, products: response.data };
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Erro ao buscar produtos';
+      return { success: false, errors: [errorMessage] };
     }
+  }
 
-    const newQuantity = this.products[productIndex].stockQuantity + adjustment;
-    
-    if (newQuantity < 0) {
-      return { success: false, errors: ['Estoque não pode ser negativo'] };
+  async getLowStockProducts(threshold: number = 10): Promise<{ success: boolean; products?: Product[]; errors?: string[] }> {
+    try {
+      const response = await api.get<Product[]>(`/api/products?lowStock=true&threshold=${threshold}`);
+      return { success: true, products: response.data };
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Erro ao carregar produtos com estoque baixo';
+      return { success: false, errors: [errorMessage] };
     }
-
-    this.products[productIndex].stockQuantity = newQuantity;
-    return { success: true, product: this.products[productIndex] };
   }
 
-  searchProducts(term: string, categoryId?: number): Product[] {
-    const searchTerm = term.toLowerCase();
-    return this.products.filter(product => {
-      const matchesSearch = product.name.toLowerCase().includes(searchTerm) ||
-                           product.barcode.includes(searchTerm);
-      const matchesCategory = !categoryId || product.category.id === categoryId;
-      return matchesSearch && matchesCategory;
-    });
+  async getCategories(): Promise<{ success: boolean; categories?: Category[]; errors?: string[] }> {
+    try {
+      const response = await api.get<Category[]>('/api/categories');
+      return { success: true, categories: response.data };
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Erro ao carregar categorias';
+      return { success: false, errors: [errorMessage] };
+    }
   }
 
-  getLowStockProducts(threshold: number = 10): Product[] {
-    return this.products.filter(product => ProductModel.isLowStock(product, threshold));
+  async getSuppliers(): Promise<{ success: boolean; suppliers?: Supplier[]; errors?: string[] }> {
+    try {
+      const response = await api.get<Supplier[]>('/api/suppliers');
+      return { success: true, suppliers: response.data };
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Erro ao carregar fornecedores';
+      return { success: false, errors: [errorMessage] };
+    }
   }
 
-  getCategories() {
-    return mockCategories;
-  }
-
-  getSuppliers() {
-    return mockSuppliers;
+  private extractErrors(error: any): string[] {
+    if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+      return error.response.data.errors;
+    }
+    if (error.response?.data?.message) {
+      return [error.response.data.message];
+    }
+    return ['Erro interno do servidor'];
   }
 }

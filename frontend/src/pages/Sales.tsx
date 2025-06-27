@@ -1,13 +1,46 @@
-import React, { useState } from 'react';
-import { Search, Eye, RefreshCw, Calendar } from 'lucide-react';
-import { Sale } from '../types';
-import { mockSales } from '../data/mockData';
+import React, { useState, useEffect } from 'react';
+import { Search, Eye, RefreshCw, Calendar, Loader2 } from 'lucide-react';
+import { SaleController } from '../controllers/SaleController';
+import { Sale, SaleModel } from '../models/Sale';
+import ErrorMessage from '../views/components/ErrorMessage';
+import SuccessMessage from '../views/components/SuccessMessage';
 
 const Sales: React.FC = () => {
-  const [sales, setSales] = useState<Sale[]>(mockSales);
+  const [saleController] = useState(() => new SaleController());
+  const [sales, setSales] = useState<Sale[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [isPageLoading, setIsPageLoading] = useState(true);
+
+  useEffect(() => {
+    loadSales();
+  }, []);
+
+  const loadSales = async () => {
+    setIsPageLoading(true);
+    const result = await saleController.getAllSales();
+    if (result.success && result.sales) {
+      setSales(result.sales);
+    } else {
+      setErrors(result.errors || ['Erro ao carregar vendas']);
+    }
+    setIsPageLoading(false);
+  };
+
+  const handleSearch = async (term: string) => {
+    setSearchTerm(term);
+    if (term.trim()) {
+      const result = await saleController.searchSales(term);
+      if (result.success && result.sales) {
+        setSales(result.sales);
+      }
+    } else {
+      loadSales();
+    }
+  };
 
   const filteredSales = sales.filter(sale =>
     sale.id.toString().includes(searchTerm) ||
@@ -15,11 +48,16 @@ const Sales: React.FC = () => {
     sale.paymentMethod.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleRefund = (saleId: number) => {
+  const handleRefund = async (saleId: number) => {
     if (confirm('Tem certeza que deseja estornar esta venda?')) {
-      setSales(sales.map(sale =>
-        sale.id === saleId ? { ...sale, status: 'REFUNDED' } : sale
-      ));
+      const result = await saleController.updateSaleStatus(saleId, 'REFUNDED');
+      if (result.success) {
+        setSuccessMessage('Venda estornada com sucesso!');
+        await loadSales();
+        setTimeout(() => setSuccessMessage(''), 3000);
+      } else {
+        setErrors(result.errors || ['Erro ao estornar venda']);
+      }
     }
   };
 
@@ -28,31 +66,14 @@ const Sales: React.FC = () => {
     setShowModal(true);
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'COMPLETED':
-        return 'bg-green-100 text-green-800';
-      case 'CANCELLED':
-        return 'bg-red-100 text-red-800';
-      case 'REFUNDED':
-        return 'bg-yellow-100 text-yellow-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'COMPLETED':
-        return 'Concluída';
-      case 'CANCELLED':
-        return 'Cancelada';
-      case 'REFUNDED':
-        return 'Estornada';
-      default:
-        return status;
-    }
-  };
+  if (isPageLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        <span className="ml-2 text-gray-600">Carregando vendas...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -63,6 +84,9 @@ const Sales: React.FC = () => {
         </div>
       </div>
 
+      {successMessage && <SuccessMessage message={successMessage} />}
+      {errors.length > 0 && <ErrorMessage errors={errors} />}
+
       {/* Search */}
       <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
         <div className="relative">
@@ -71,7 +95,7 @@ const Sales: React.FC = () => {
             type="text"
             placeholder="Buscar por ID, vendedor ou método de pagamento..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => handleSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
@@ -130,11 +154,11 @@ const Sales: React.FC = () => {
                     R$ {sale.totalAmount.toFixed(2)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {sale.paymentMethod}
+                    {SaleModel.formatPaymentMethod(sale.paymentMethod)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(sale.status)}`}>
-                      {getStatusText(sale.status)}
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${SaleModel.getStatusColor(sale.status)}`}>
+                      {SaleModel.formatStatus(sale.status)}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -164,6 +188,17 @@ const Sales: React.FC = () => {
         </div>
       </div>
 
+      {/* Empty State */}
+      {filteredSales.length === 0 && (
+        <div className="text-center py-12">
+          <Calendar className="mx-auto h-12 w-12 text-gray-400" />
+          <h3 className="mt-2 text-sm font-medium text-gray-900">Nenhuma venda encontrada</h3>
+          <p className="mt-1 text-sm text-gray-500">
+            {searchTerm ? 'Tente ajustar sua busca.' : 'Nenhuma venda foi realizada ainda.'}
+          </p>
+        </div>
+      )}
+
       {/* Sale Details Modal */}
       {showModal && selectedSale && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -179,10 +214,10 @@ const Sales: React.FC = () => {
                   <div className="space-y-2 text-sm">
                     <p><span className="font-medium">Data/Hora:</span> {new Date(selectedSale.saleDate).toLocaleString('pt-BR')}</p>
                     <p><span className="font-medium">Vendedor:</span> {selectedSale.user.firstName} {selectedSale.user.lastName}</p>
-                    <p><span className="font-medium">Método de Pagamento:</span> {selectedSale.paymentMethod}</p>
+                    <p><span className="font-medium">Método de Pagamento:</span> {SaleModel.formatPaymentMethod(selectedSale.paymentMethod)}</p>
                     <p><span className="font-medium">Status:</span> 
-                      <span className={`ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(selectedSale.status)}`}>
-                        {getStatusText(selectedSale.status)}
+                      <span className={`ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${SaleModel.getStatusColor(selectedSale.status)}`}>
+                        {SaleModel.formatStatus(selectedSale.status)}
                       </span>
                     </p>
                   </div>

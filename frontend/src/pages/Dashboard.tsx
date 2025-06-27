@@ -1,21 +1,95 @@
-import React from 'react';
-import { Users, Package, ShoppingCart, TrendingUp, AlertTriangle, DollarSign } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Users, Package, ShoppingCart, TrendingUp, AlertTriangle, DollarSign, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { mockProducts, mockSales, mockUsers } from '../data/mockData';
+import { ProductController } from '../controllers/ProductController';
+import { SaleController } from '../controllers/SaleController';
+import { UserController } from '../controllers/UserController';
+import { Product } from '../models/Product';
+import { Sale } from '../models/Sale';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
+  const [productController] = useState(() => new ProductController());
+  const [saleController] = useState(() => new SaleController());
+  const [userController] = useState(() => new UserController());
+  
+  const [stats, setStats] = useState({
+    totalProducts: 0,
+    lowStockProducts: 0,
+    totalSales: 0,
+    totalRevenue: 0,
+    totalUsers: 0
+  });
+  
+  const [recentSales, setRecentSales] = useState<Sale[]>([]);
+  const [lowStockItems, setLowStockItems] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errors, setErrors] = useState<string[]>([]);
 
-  const totalProducts = mockProducts.length;
-  const lowStockProducts = mockProducts.filter(p => p.stockQuantity < 10).length;
-  const totalSales = mockSales.length;
-  const totalRevenue = mockSales.reduce((sum, sale) => sum + sale.totalAmount, 0);
-  const totalUsers = mockUsers.filter(u => u.isActive).length;
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
 
-  const stats = [
+  const loadDashboardData = async () => {
+    setIsLoading(true);
+    setErrors([]);
+
+    try {
+      // Load products
+      const productsResult = await productController.getAllProducts();
+      let totalProducts = 0;
+      let lowStockProducts: Product[] = [];
+      
+      if (productsResult.success && productsResult.products) {
+        totalProducts = productsResult.products.length;
+        lowStockProducts = productsResult.products.filter(p => p.stockQuantity < 10);
+      }
+
+      // Load sales
+      const salesResult = await saleController.getAllSales();
+      let totalSales = 0;
+      let recentSalesData: Sale[] = [];
+      
+      if (salesResult.success && salesResult.sales) {
+        totalSales = salesResult.sales.length;
+        recentSalesData = salesResult.sales.slice(0, 3);
+      }
+
+      // Load revenue
+      const revenueResult = await saleController.getTotalRevenue();
+      const totalRevenue = revenueResult.success ? revenueResult.revenue || 0 : 0;
+
+      // Load users (only for managers)
+      let totalUsers = 0;
+      if (user?.role.authority === 'GERENTE') {
+        const usersResult = await userController.getAllUsers();
+        if (usersResult.success && usersResult.users) {
+          totalUsers = usersResult.users.filter(u => u.isActive).length;
+        }
+      }
+
+      setStats({
+        totalProducts,
+        lowStockProducts: lowStockProducts.length,
+        totalSales,
+        totalRevenue,
+        totalUsers
+      });
+
+      setRecentSales(recentSalesData);
+      setLowStockItems(lowStockProducts);
+
+    } catch (error) {
+      setErrors(['Erro ao carregar dados do dashboard']);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const statsData = [
     {
       name: 'Total de Produtos',
-      value: totalProducts,
+      value: stats.totalProducts,
       icon: Package,
       color: 'bg-blue-500',
       textColor: 'text-blue-600',
@@ -23,7 +97,7 @@ const Dashboard: React.FC = () => {
     },
     {
       name: 'Produtos em Baixo Estoque',
-      value: lowStockProducts,
+      value: stats.lowStockProducts,
       icon: AlertTriangle,
       color: 'bg-orange-500',
       textColor: 'text-orange-600',
@@ -31,7 +105,7 @@ const Dashboard: React.FC = () => {
     },
     {
       name: 'Vendas Hoje',
-      value: totalSales,
+      value: stats.totalSales,
       icon: ShoppingCart,
       color: 'bg-green-500',
       textColor: 'text-green-600',
@@ -39,7 +113,7 @@ const Dashboard: React.FC = () => {
     },
     {
       name: 'Receita Total',
-      value: `R$ ${totalRevenue.toFixed(2)}`,
+      value: `R$ ${stats.totalRevenue.toFixed(2)}`,
       icon: DollarSign,
       color: 'bg-purple-500',
       textColor: 'text-purple-600',
@@ -47,8 +121,14 @@ const Dashboard: React.FC = () => {
     }
   ];
 
-  const recentSales = mockSales.slice(0, 3);
-  const lowStockItems = mockProducts.filter(p => p.stockQuantity < 10);
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        <span className="ml-2 text-gray-600">Carregando dashboard...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -62,9 +142,23 @@ const Dashboard: React.FC = () => {
         </p>
       </div>
 
+      {/* Error Messages */}
+      {errors.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <AlertTriangle className="w-5 h-5 text-red-500 mr-3" />
+            <div>
+              {errors.map((error, index) => (
+                <p key={index} className="text-sm text-red-700">{error}</p>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, index) => (
+        {statsData.map((stat, index) => (
           <div key={index} className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
@@ -87,20 +181,24 @@ const Dashboard: React.FC = () => {
             <TrendingUp className="w-5 h-5 text-green-500" />
           </div>
           <div className="space-y-4">
-            {recentSales.map((sale) => (
-              <div key={sale.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="font-medium text-gray-900">Venda #{sale.id}</p>
-                  <p className="text-sm text-gray-600">
-                    {new Date(sale.saleDate).toLocaleDateString('pt-BR')} - {sale.user.firstName}
-                  </p>
+            {recentSales.length > 0 ? (
+              recentSales.map((sale) => (
+                <div key={sale.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="font-medium text-gray-900">Venda #{sale.id}</p>
+                    <p className="text-sm text-gray-600">
+                      {new Date(sale.saleDate).toLocaleDateString('pt-BR')} - {sale.user.firstName}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold text-green-600">R$ {sale.totalAmount.toFixed(2)}</p>
+                    <p className="text-xs text-gray-500">{sale.paymentMethod}</p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-semibold text-green-600">R$ {sale.totalAmount.toFixed(2)}</p>
-                  <p className="text-xs text-gray-500">{sale.paymentMethod}</p>
-                </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="text-gray-500 text-center py-4">Nenhuma venda recente</p>
+            )}
           </div>
         </div>
 

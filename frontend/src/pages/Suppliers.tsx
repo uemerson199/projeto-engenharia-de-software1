@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
-import { Plus, Search, Edit, Trash2, Truck, Phone, Mail } from 'lucide-react';
-import { Supplier } from '../types';
-import { mockSuppliers } from '../data/mockData';
+import React, { useState, useEffect } from 'react';
+import { Plus, Search, Edit, Trash2, Truck, Phone, Mail, Loader2 } from 'lucide-react';
+import { SupplierController } from '../controllers/SupplierController';
+import { Supplier, SupplierModel } from '../models/Supplier';
+import ErrorMessage from '../views/components/ErrorMessage';
+import SuccessMessage from '../views/components/SuccessMessage';
 
 const Suppliers: React.FC = () => {
-  const [suppliers, setSuppliers] = useState<Supplier[]>(mockSuppliers);
+  const [supplierController] = useState(() => new SupplierController());
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
@@ -15,6 +18,37 @@ const Suppliers: React.FC = () => {
     email: '',
     cnpj: ''
   });
+  const [errors, setErrors] = useState<string[]>([]);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isPageLoading, setIsPageLoading] = useState(true);
+
+  useEffect(() => {
+    loadSuppliers();
+  }, []);
+
+  const loadSuppliers = async () => {
+    setIsPageLoading(true);
+    const result = await supplierController.getAllSuppliers();
+    if (result.success && result.suppliers) {
+      setSuppliers(result.suppliers);
+    } else {
+      setErrors(result.errors || ['Erro ao carregar fornecedores']);
+    }
+    setIsPageLoading(false);
+  };
+
+  const handleSearch = async (term: string) => {
+    setSearchTerm(term);
+    if (term.trim()) {
+      const result = await supplierController.searchSuppliers(term);
+      if (result.success && result.suppliers) {
+        setSuppliers(result.suppliers);
+      }
+    } else {
+      loadSuppliers();
+    }
+  };
 
   const filteredSuppliers = suppliers.filter(supplier =>
     supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -22,27 +56,34 @@ const Suppliers: React.FC = () => {
     supplier.cnpj.includes(searchTerm)
   );
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
+    setErrors([]);
 
-    if (editingSupplier) {
-      setSuppliers(suppliers.map(supplier =>
-        supplier.id === editingSupplier.id
-          ? { ...supplier, ...formData }
-          : supplier
-      ));
-    } else {
-      const newSupplier: Supplier = {
-        id: Math.max(...suppliers.map(s => s.id)) + 1,
-        ...formData,
-        isActive: true
-      };
-      setSuppliers([...suppliers, newSupplier]);
+    try {
+      let result;
+      if (editingSupplier) {
+        result = await supplierController.updateSupplier(editingSupplier.id, formData);
+      } else {
+        result = await supplierController.createSupplier(formData);
+      }
+
+      if (result.success) {
+        setSuccessMessage(editingSupplier ? 'Fornecedor atualizado com sucesso!' : 'Fornecedor criado com sucesso!');
+        setShowModal(false);
+        setEditingSupplier(null);
+        setFormData({ name: '', contactName: '', phone: '', email: '', cnpj: '' });
+        await loadSuppliers();
+        setTimeout(() => setSuccessMessage(''), 3000);
+      } else {
+        setErrors(result.errors || ['Erro desconhecido']);
+      }
+    } catch (error) {
+      setErrors(['Erro interno do sistema']);
+    } finally {
+      setIsLoading(false);
     }
-
-    setShowModal(false);
-    setEditingSupplier(null);
-    setFormData({ name: '', contactName: '', phone: '', email: '', cnpj: '' });
   };
 
   const handleEdit = (supplier: Supplier) => {
@@ -54,20 +95,38 @@ const Suppliers: React.FC = () => {
       email: supplier.email,
       cnpj: supplier.cnpj
     });
+    setErrors([]);
     setShowModal(true);
   };
 
-  const handleDelete = (id: number) => {
+  const handleDelete = async (id: number) => {
     if (confirm('Tem certeza que deseja excluir este fornecedor?')) {
-      setSuppliers(suppliers.filter(supplier => supplier.id !== id));
+      const result = await supplierController.deleteSupplier(id);
+      if (result.success) {
+        setSuccessMessage('Fornecedor excluído com sucesso!');
+        await loadSuppliers();
+        setTimeout(() => setSuccessMessage(''), 3000);
+      } else {
+        setErrors(result.errors || ['Erro ao excluir fornecedor']);
+      }
     }
   };
 
   const openModal = () => {
     setEditingSupplier(null);
     setFormData({ name: '', contactName: '', phone: '', email: '', cnpj: '' });
+    setErrors([]);
     setShowModal(true);
   };
+
+  if (isPageLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        <span className="ml-2 text-gray-600">Carregando fornecedores...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -85,6 +144,9 @@ const Suppliers: React.FC = () => {
         </button>
       </div>
 
+      {successMessage && <SuccessMessage message={successMessage} />}
+      {errors.length > 0 && <ErrorMessage errors={errors} />}
+
       {/* Search */}
       <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
         <div className="relative">
@@ -93,7 +155,7 @@ const Suppliers: React.FC = () => {
             type="text"
             placeholder="Buscar por nome, contato ou CNPJ..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => handleSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
@@ -149,7 +211,7 @@ const Suppliers: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     <div className="flex items-center">
                       <Phone className="w-4 h-4 text-gray-400 mr-2" />
-                      {supplier.phone}
+                      {SupplierModel.formatPhone(supplier.phone)}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -159,7 +221,7 @@ const Suppliers: React.FC = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {supplier.cnpj}
+                    {SupplierModel.formatCNPJ(supplier.cnpj)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex items-center justify-end space-x-2">
@@ -186,6 +248,17 @@ const Suppliers: React.FC = () => {
         </div>
       </div>
 
+      {/* Empty State */}
+      {filteredSuppliers.length === 0 && (
+        <div className="text-center py-12">
+          <Truck className="mx-auto h-12 w-12 text-gray-400" />
+          <h3 className="mt-2 text-sm font-medium text-gray-900">Nenhum fornecedor encontrado</h3>
+          <p className="mt-1 text-sm text-gray-500">
+            {searchTerm ? 'Tente ajustar sua busca.' : 'Comece criando um novo fornecedor.'}
+          </p>
+        </div>
+      )}
+
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -193,6 +266,8 @@ const Suppliers: React.FC = () => {
             <h2 className="text-xl font-bold text-gray-900 mb-4">
               {editingSupplier ? 'Editar Fornecedor' : 'Novo Fornecedor'}
             </h2>
+            
+            {errors.length > 0 && <ErrorMessage errors={errors} className="mb-4" />}
             
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -205,6 +280,7 @@ const Suppliers: React.FC = () => {
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
+                  disabled={isLoading}
                 />
               </div>
 
@@ -218,6 +294,7 @@ const Suppliers: React.FC = () => {
                   onChange={(e) => setFormData({ ...formData, contactName: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
+                  disabled={isLoading}
                 />
               </div>
 
@@ -232,6 +309,7 @@ const Suppliers: React.FC = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="(11) 99999-9999"
                   required
+                  disabled={isLoading}
                 />
               </div>
 
@@ -245,6 +323,7 @@ const Suppliers: React.FC = () => {
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
+                  disabled={isLoading}
                 />
               </div>
 
@@ -259,6 +338,7 @@ const Suppliers: React.FC = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="12.345.678/0001-90"
                   required
+                  disabled={isLoading}
                 />
               </div>
 
@@ -267,14 +347,17 @@ const Suppliers: React.FC = () => {
                   type="button"
                   onClick={() => setShowModal(false)}
                   className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                  disabled={isLoading}
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center"
+                  disabled={isLoading}
                 >
-                  {editingSupplier ? 'Salvar' : 'Criar'}
+                  {isLoading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                  {isLoading ? 'Salvando...' : (editingSupplier ? 'Salvar' : 'Criar')}
                 </button>
               </div>
             </form>

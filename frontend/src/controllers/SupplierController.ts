@@ -1,83 +1,90 @@
-import { Supplier, SupplierModel } from '../models/Supplier';
-import { mockSuppliers } from '../data/mockData';
+import api from '../services/api';
+import { Supplier } from '../models/Supplier';
+
+export interface CreateSupplierRequest {
+  name: string;
+  contactName: string;
+  phone: string;
+  email: string;
+  cnpj: string;
+}
+
+export interface UpdateSupplierRequest {
+  name?: string;
+  contactName?: string;
+  phone?: string;
+  email?: string;
+  cnpj?: string;
+}
 
 export class SupplierController {
-  private suppliers: Supplier[] = [...mockSuppliers];
-
-  getAllSuppliers(): Supplier[] {
-    return this.suppliers;
+  async getAllSuppliers(): Promise<{ success: boolean; suppliers?: Supplier[]; errors?: string[] }> {
+    try {
+      const response = await api.get<Supplier[]>('/api/suppliers');
+      return { success: true, suppliers: response.data };
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Erro ao carregar fornecedores';
+      return { success: false, errors: [errorMessage] };
+    }
   }
 
-  getSupplierById(id: number): Supplier | null {
-    return this.suppliers.find(supplier => supplier.id === id) || null;
+  async getSupplierById(id: number): Promise<{ success: boolean; supplier?: Supplier; errors?: string[] }> {
+    try {
+      const response = await api.get<Supplier>(`/api/suppliers/${id}`);
+      return { success: true, supplier: response.data };
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Fornecedor não encontrado';
+      return { success: false, errors: [errorMessage] };
+    }
   }
 
-  createSupplier(supplierData: Omit<Supplier, 'id'>): { success: boolean; supplier?: Supplier; errors?: string[] } {
-    const errors = SupplierModel.validate(supplierData);
-    
-    if (errors.length > 0) {
+  async createSupplier(supplierData: CreateSupplierRequest): Promise<{ success: boolean; supplier?: Supplier; errors?: string[] }> {
+    try {
+      const response = await api.post<Supplier>('/api/suppliers', supplierData);
+      return { success: true, supplier: response.data };
+    } catch (error: any) {
+      const errors = this.extractErrors(error);
       return { success: false, errors };
     }
-
-    if (this.suppliers.some(supplier => supplier.cnpj === supplierData.cnpj)) {
-      return { success: false, errors: ['CNPJ já está cadastrado'] };
-    }
-
-    if (this.suppliers.some(supplier => supplier.email === supplierData.email)) {
-      return { success: false, errors: ['Email já está em uso'] };
-    }
-
-    const newSupplier: Supplier = {
-      ...supplierData,
-      id: Math.max(...this.suppliers.map(s => s.id)) + 1
-    };
-
-    this.suppliers.push(newSupplier);
-    return { success: true, supplier: newSupplier };
   }
 
-  updateSupplier(id: number, supplierData: Partial<Supplier>): { success: boolean; supplier?: Supplier; errors?: string[] } {
-    const supplierIndex = this.suppliers.findIndex(supplier => supplier.id === id);
-    
-    if (supplierIndex === -1) {
-      return { success: false, errors: ['Fornecedor não encontrado'] };
-    }
-
-    const errors = SupplierModel.validate({ ...this.suppliers[supplierIndex], ...supplierData });
-    
-    if (errors.length > 0) {
+  async updateSupplier(id: number, supplierData: UpdateSupplierRequest): Promise<{ success: boolean; supplier?: Supplier; errors?: string[] }> {
+    try {
+      const response = await api.put<Supplier>(`/api/suppliers/${id}`, supplierData);
+      return { success: true, supplier: response.data };
+    } catch (error: any) {
+      const errors = this.extractErrors(error);
       return { success: false, errors };
     }
-
-    if (supplierData.cnpj && this.suppliers.some(supplier => supplier.cnpj === supplierData.cnpj && supplier.id !== id)) {
-      return { success: false, errors: ['CNPJ já está cadastrado'] };
-    }
-
-    if (supplierData.email && this.suppliers.some(supplier => supplier.email === supplierData.email && supplier.id !== id)) {
-      return { success: false, errors: ['Email já está em uso'] };
-    }
-
-    this.suppliers[supplierIndex] = { ...this.suppliers[supplierIndex], ...supplierData };
-    return { success: true, supplier: this.suppliers[supplierIndex] };
   }
 
-  deleteSupplier(id: number): { success: boolean; errors?: string[] } {
-    const supplierIndex = this.suppliers.findIndex(supplier => supplier.id === id);
-    
-    if (supplierIndex === -1) {
-      return { success: false, errors: ['Fornecedor não encontrado'] };
+  async deleteSupplier(id: number): Promise<{ success: boolean; errors?: string[] }> {
+    try {
+      await api.delete(`/api/suppliers/${id}`);
+      return { success: true };
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Erro ao excluir fornecedor';
+      return { success: false, errors: [errorMessage] };
     }
-
-    this.suppliers.splice(supplierIndex, 1);
-    return { success: true };
   }
 
-  searchSuppliers(term: string): Supplier[] {
-    const searchTerm = term.toLowerCase();
-    return this.suppliers.filter(supplier =>
-      supplier.name.toLowerCase().includes(searchTerm) ||
-      supplier.contactName.toLowerCase().includes(searchTerm) ||
-      supplier.cnpj.includes(searchTerm)
-    );
+  async searchSuppliers(term: string): Promise<{ success: boolean; suppliers?: Supplier[]; errors?: string[] }> {
+    try {
+      const response = await api.get<Supplier[]>(`/api/suppliers?search=${encodeURIComponent(term)}`);
+      return { success: true, suppliers: response.data };
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Erro ao buscar fornecedores';
+      return { success: false, errors: [errorMessage] };
+    }
+  }
+
+  private extractErrors(error: any): string[] {
+    if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+      return error.response.data.errors;
+    }
+    if (error.response?.data?.message) {
+      return [error.response.data.message];
+    }
+    return ['Erro interno do servidor'];
   }
 }
