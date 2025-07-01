@@ -1,11 +1,7 @@
 package com.ifsuldeminas.escrud.dto;
 
-
 import com.ifsuldeminas.escrud.entities.Supplier;
-import lombok.AllArgsConstructor;
-import lombok.Data;
 
-@AllArgsConstructor
 public class SupplierDTO {
 
     private Long id;
@@ -15,6 +11,19 @@ public class SupplierDTO {
     private String email;
     private String cnpj;
 
+    public SupplierDTO(Long id, String name, String contactName, String phone, String email, String cnpj) {
+        this.id = id;
+        this.name = name;
+        this.contactName = contactName;
+        this.phone = phone;
+        this.email = email;
+        this.cnpj = cnpj;
+    }
+
+    public SupplierDTO() {
+
+    }
+
     public SupplierDTO(Supplier supplier) {
         this.id = supplier.getId();
         this.name = supplier.getName();
@@ -23,6 +32,7 @@ public class SupplierDTO {
         this.email = supplier.getEmail();
         this.cnpj = supplier.getCnpj();
     }
+
 
     public Long getId() {
         return id;
