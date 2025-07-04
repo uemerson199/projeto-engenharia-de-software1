@@ -1,34 +1,61 @@
-# Nome do seu pipeline de Integração Contínua
+# O 'name' é o título do seu workflow. É o que aparece na lista de
+# execuções na aba "Actions" do GitHub para fácil identificação.
 name: CI com Java 21 e Maven
 
-# Gatilhos: roda o pipeline em pushes e pull requests para a branch main
+# A seção 'on' define os GATILHOS (triggers), ou seja, QUANDO o workflow
+# deve ser executado automaticamente.
 on:
+  # 'push' aciona o workflow sempre que um novo código é enviado.
   push:
+    # 'branches' especifica que o gatilho de push só vale para a branch 'main'.
     branches: [ "main" ]
+  # 'pull_request' aciona o workflow quando um Pull Request é aberto ou
+  # atualizado, para validar as alterações antes de serem mescladas.
   pull_request:
     branches: [ "main" ]
 
+# A seção 'jobs' agrupa todas as tarefas que o workflow irá executar.
 jobs:
-  # Nome do job, pode ser qualquer um
+  # 'build-e-test' é o nome que demos para a nossa única tarefa (job).
+  # Cada job roda em um ambiente isolado.
   build-e-test:
-
-    # A máquina virtual que será usada
+    # 'runs-on' define o tipo de máquina virtual que será usada.
+    # 'ubuntu-latest' nos dá um ambiente Linux Ubuntu sempre atualizado.
     runs-on: ubuntu-latest
 
+    # 'steps' é a sequência de passos que a tarefa irá executar em ordem.
     steps:
-      # 1. Faz o checkout do seu código do repositório
+      # PASSO 1: Baixar o código do repositório para a máquina virtual.
+      # 'name' é o título do passo que aparece no log.
       - name: Checkout do código
+        # 'uses' indica que estamos usando uma ação pronta da comunidade.
+        # 'actions/checkout@v4' é a ação padrão para clonar o repositório.
         uses: actions/checkout@v4
 
-      # 2. Configura o ambiente Java, especificando a versão do seu projeto
+      # PASSO 2: Configurar o ambiente Java (JDK).
       - name: Configurar JDK 21
+        # 'actions/setup-java@v4' é a ação que instala o Java.
         uses: actions/setup-java@v4
+        # 'with' define os parâmetros para a ação 'setup-java'.
         with:
-          # A linha mais importante: deve ser IGUAL à versão do seu projeto
+          # 'java-version': A linha mais importante! Garante que o pipeline
+          # use a mesma versão do Java (21) do seu projeto.
           java-version: '21'
+          # 'distribution': Define a distribuição do OpenJDK a ser usada.
+          # 'temurin' é uma escolha popular e confiável.
           distribution: 'temurin'
-          cache: 'maven' # Adiciona cache para acelerar builds futuros
+          # 'cache': Otimização de performance. Salva as dependências do
+          # Maven para acelerar as próximas execuções.
+          cache: 'maven'
 
-      # 3. Executa o build e os testes com o Maven
+      # PASSO 3: Executar o build e os testes do projeto com o Maven.
+      - name: Build e Testes com Maven
+        # 'working-directory' instrui o pipeline a primeiro entrar na
+        # pasta './backend' antes de executar o comando. Essencial
+        # porque o pom.xml está lá dentro.
         working-directory: ./backend
+        # 'run' executa um comando no terminal da máquina virtual.
+        # O comando 'mvn -B package' compila, RODA TODOS OS TESTES, e
+        # se tudo passar, empacota a aplicação em um arquivo .jar.
+        # Se qualquer teste falhar, o workflow para aqui com erro.
         run: mvn -B package --file pom.xml
