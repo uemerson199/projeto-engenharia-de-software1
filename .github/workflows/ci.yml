@@ -30,7 +30,5 @@ jobs:
           cache: 'maven' # Adiciona cache para acelerar builds futuros
 
       # 3. Executa o build e os testes com o Maven
-      - name: Build e Testes com Maven
-        # O comando "package" primeiro compila e RODA OS TESTES.
-        # Se os testes falharem, o pipeline para aqui.
+        working-directory: ./backend
         run: mvn -B package --file pom.xml
