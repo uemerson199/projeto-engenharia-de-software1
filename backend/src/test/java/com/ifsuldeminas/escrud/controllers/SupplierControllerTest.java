@@ -37,7 +37,7 @@ class SupplierControllerTest {
     @Test
     @DisplayName("GET /api/suppliers/{id} deve retornar um fornecedor completo")
     void testFindById() throws Exception {
-        SupplierDTO dto = new SupplierDTO(1L, "Fornecedor A", "Contato A", "123456", "a@a.com", "00.000.000/0000-00");
+        SupplierDTO dto = new SupplierDTO(1L, "Fornecedor XX", "Contato A", "123456", "a@a.com", "00.000.000/0000-00");
 
         Mockito.when(supplierService.findById(1L)).thenReturn(dto);
 
