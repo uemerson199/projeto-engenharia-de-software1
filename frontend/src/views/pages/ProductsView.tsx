@@ -309,7 +309,9 @@ const ProductsView: React.FC = () => {
                         {product.stockQuantity}
                       </span>
                       {ProductModel.isLowStock(product) && (
-                        <AlertTriangle className="w-4 h-4 text-red-500" title="Estoque baixo" />
+                        <span title="Estoque baixo">
+                          <AlertTriangle className="w-4 h-4 text-red-500" />
+                        </span>
                       )}
                       <div className="flex space-x-1">
                         <button
