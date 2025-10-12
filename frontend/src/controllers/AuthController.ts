@@ -23,16 +23,15 @@ export class AuthController {
       const mockUser: User = {
         id: 1,
         firstName: 'Admin',
-        lastName: 'Teste',
+        lastName: 'Local', // Mudei para "Local" para ficar claro que é o usuário de teste
         email: testEmail,
         isActive: true,
         createdAt: new Date().toISOString(),
         role: {
           id: 1,
-          authority: 'ROLE_ADMIN',
-          name: 'Administrador'
+          authority: 'GERENTE', // CORREÇÃO: Alterado de ROLE_ADMIN para GERENTE
+          name: 'Gerente'       // CORREÇÃO: Alterado para corresponder à role
         }
-        // password é opcional, pode deixar sem ou adicionar se quiser
       };
 
       const mockToken = 'fake-jwt-token';

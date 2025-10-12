@@ -16,6 +16,11 @@ const ProductsView: React.FC = () => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  
+  // Estados para os novos filtros
+  const [supplierFilter, setSupplierFilter] = useState('');
+  const [stockStatusFilter, setStockStatusFilter] = useState('all'); // Opções: 'all', 'normal', 'low'
+
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
@@ -162,29 +167,79 @@ const ProductsView: React.FC = () => {
 
       {/* Filters */}
       <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Buscar por nome ou código de barras..."
-              value={searchTerm}
-              onChange={(e) => handleSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+          <div className="lg:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Buscar</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Buscar por nome ou código de barras..."
+                value={searchTerm}
+                onChange={(e) => handleSearch(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
           </div>
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="">Todas as categorias</option>
-            {categories.map(category => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
-          </select>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">Todas as categorias</option>
+              {categories.map(category => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Fornecedor</label>
+            <select
+              value={supplierFilter}
+              onChange={(e) => setSupplierFilter(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">Todos os fornecedores</option>
+              {suppliers.map(supplier => (
+                <option key={supplier.id} value={supplier.id}>
+                  {supplier.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">Status do Estoque</label>
+          <div className="flex space-x-2 rounded-lg p-1 bg-gray-100 w-fit">
+            <button
+              onClick={() => setStockStatusFilter('all')}
+              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                stockStatusFilter === 'all' ? 'bg-blue-600 text-white shadow' : 'text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              Todos
+            </button>
+            <button
+              onClick={() => setStockStatusFilter('normal')}
+              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                stockStatusFilter === 'normal' ? 'bg-blue-600 text-white shadow' : 'text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              Normal
+            </button>
+            <button
+              onClick={() => setStockStatusFilter('low')}
+              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                stockStatusFilter === 'low' ? 'bg-blue-600 text-white shadow' : 'text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              Estoque Baixo
+            </button>
+          </div>
         </div>
       </div>
 
@@ -222,14 +277,14 @@ const ProductsView: React.FC = () => {
                 <tr key={product.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
-                      <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
                         <Package className="w-5 h-5 text-blue-600" />
                       </div>
                       <div className="ml-4">
                         <div className="text-sm font-medium text-gray-900">
                           {product.name}
                         </div>
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm text-gray-500 truncate" style={{ maxWidth: '20ch' }}>
                           {product.description}
                         </div>
                       </div>
@@ -254,18 +309,20 @@ const ProductsView: React.FC = () => {
                         {product.stockQuantity}
                       </span>
                       {ProductModel.isLowStock(product) && (
-                        <AlertTriangle className="w-4 h-4 text-red-500" />
+                        <AlertTriangle className="w-4 h-4 text-red-500" title="Estoque baixo" />
                       )}
                       <div className="flex space-x-1">
                         <button
                           onClick={() => adjustStock(product.id, -1)}
                           className="w-6 h-6 bg-red-100 text-red-600 rounded text-xs hover:bg-red-200"
+                          title="Diminuir estoque"
                         >
                           -
                         </button>
                         <button
                           onClick={() => adjustStock(product.id, 1)}
                           className="w-6 h-6 bg-green-100 text-green-600 rounded text-xs hover:bg-green-200"
+                          title="Aumentar estoque"
                         >
                           +
                         </button>
