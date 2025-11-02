@@ -12,14 +12,15 @@ import SuccessMessage from '../components/SuccessMessage';
 const ProductsView: React.FC = () => {
   const [productController] = useState(() => new ProductController());
   const [products, setProducts] = useState<Product[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+
   const [categories, setCategories] = useState<Category[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
-  
-  // Estados para os novos filtros
   const [supplierFilter, setSupplierFilter] = useState('');
-  const [stockStatusFilter, setStockStatusFilter] = useState('all'); // Opções: 'all', 'normal', 'low'
+  const [stockStatusFilter, setStockStatusFilter] = useState<'all' | 'normal' | 'low'>('all');
 
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -31,6 +32,11 @@ const ProductsView: React.FC = () => {
   useEffect(() => {
     loadInitialData();
   }, []);
+
+  // Atualiza produtos filtrados quando filtros ou lista original mudam
+  useEffect(() => {
+    applyFilters();
+  }, [products, searchTerm, categoryFilter, supplierFilter, stockStatusFilter]);
 
   const loadInitialData = async () => {
     setIsPageLoading(true);
@@ -61,23 +67,42 @@ const ProductsView: React.FC = () => {
     }
   };
 
-  const handleSearch = async (term: string) => {
-    setSearchTerm(term);
-    if (term.trim()) {
-      const categoryId = categoryFilter ? parseInt(categoryFilter) : undefined;
-      const result = await productController.searchProducts(term, categoryId);
-      if (result.success && result.products) {
-        setProducts(result.products);
-      }
-    } else {
-      loadProducts();
+  const applyFilters = () => {
+    let result = [...products];
+
+    // Busca (nome ou código de barras)
+    if (searchTerm.trim()) {
+      result = result.filter(
+        (p) =>
+          p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          p.barcode.toLowerCase().includes(searchTerm.toLowerCase())
+      );
     }
+
+    // Categoria
+    if (categoryFilter) {
+      result = result.filter((p) => p.category.id === parseInt(categoryFilter));
+    }
+
+    // Fornecedor
+    if (supplierFilter) {
+      result = result.filter((p) => p.supplier.id === parseInt(supplierFilter));
+    }
+
+    // Status do estoque
+    if (stockStatusFilter === 'low') {
+      result = result.filter((p) => ProductModel.isLowStock(p));
+    } else if (stockStatusFilter === 'normal') {
+      result = result.filter((p) => !ProductModel.isLowStock(p));
+    }
+
+    setFilteredProducts(result);
   };
 
   const handleSubmit = async (productData: any) => {
     setIsLoading(true);
     setErrors([]);
-    
+
     try {
       let result;
       if (editingProduct) {
@@ -165,7 +190,7 @@ const ProductsView: React.FC = () => {
       {successMessage && <SuccessMessage message={successMessage} />}
       {errors.length > 0 && <ErrorMessage errors={errors} />}
 
-      {/* Filters */}
+      {/* Filtros */}
       <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
           <div className="lg:col-span-2">
@@ -176,11 +201,12 @@ const ProductsView: React.FC = () => {
                 type="text"
                 placeholder="Buscar por nome ou código de barras..."
                 value={searchTerm}
-                onChange={(e) => handleSearch(e.target.value)}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
           </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
             <select
@@ -189,13 +215,14 @@ const ProductsView: React.FC = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="">Todas as categorias</option>
-              {categories.map(category => (
+              {categories.map((category) => (
                 <option key={category.id} value={category.id}>
                   {category.name}
                 </option>
               ))}
             </select>
           </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Fornecedor</label>
             <select
@@ -204,7 +231,7 @@ const ProductsView: React.FC = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="">Todos os fornecedores</option>
-              {suppliers.map(supplier => (
+              {suppliers.map((supplier) => (
                 <option key={supplier.id} value={supplier.id}>
                   {supplier.name}
                 </option>
@@ -212,6 +239,7 @@ const ProductsView: React.FC = () => {
             </select>
           </div>
         </div>
+
         <div className="mt-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">Status do Estoque</label>
           <div className="flex space-x-2 rounded-lg p-1 bg-gray-100 w-fit">
@@ -243,7 +271,7 @@ const ProductsView: React.FC = () => {
         </div>
       </div>
 
-      {/* Products Table */}
+      {/* Tabela de produtos */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -273,7 +301,7 @@ const ProductsView: React.FC = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {products.map((product) => (
+              {filteredProducts.map((product) => (
                 <tr key={product.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
@@ -281,18 +309,14 @@ const ProductsView: React.FC = () => {
                         <Package className="w-5 h-5 text-blue-600" />
                       </div>
                       <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">
-                          {product.name}
-                        </div>
+                        <div className="text-sm font-medium text-gray-900">{product.name}</div>
                         <div className="text-sm text-gray-500 truncate" style={{ maxWidth: '20ch' }}>
                           {product.description}
                         </div>
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {product.barcode}
-                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{product.barcode}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
                       {product.category.name}
@@ -303,9 +327,11 @@ const ProductsView: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center space-x-2">
-                      <span className={`text-sm font-medium ${
-                        ProductModel.isLowStock(product) ? 'text-red-600' : 'text-gray-900'
-                      }`}>
+                      <span
+                        className={`text-sm font-medium ${
+                          ProductModel.isLowStock(product) ? 'text-red-600' : 'text-gray-900'
+                        }`}
+                      >
                         {product.stockQuantity}
                       </span>
                       {ProductModel.isLowStock(product) && (
@@ -359,8 +385,7 @@ const ProductsView: React.FC = () => {
         </div>
       </div>
 
-      {/* Empty State */}
-      {products.length === 0 && !isPageLoading && (
+      {filteredProducts.length === 0 && !isPageLoading && (
         <div className="text-center py-12">
           <Package className="mx-auto h-12 w-12 text-gray-400" />
           <h3 className="mt-2 text-sm font-medium text-gray-900">Nenhum produto encontrado</h3>
@@ -370,7 +395,6 @@ const ProductsView: React.FC = () => {
         </div>
       )}
 
-      {/* Modal */}
       <Modal
         isOpen={showModal}
         onClose={() => setShowModal(false)}
