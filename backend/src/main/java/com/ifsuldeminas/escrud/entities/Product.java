@@ -1,41 +1,54 @@
 package com.ifsuldeminas.escrud.entities;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
+import java.util.Set;
 
-import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
-
-@Data
-@Entity
-@Builder
-@AllArgsConstructor
+@Getter
+@Setter
 @NoArgsConstructor
-@Table(name = "tb_product")
+@AllArgsConstructor
+@Builder
+@Entity
+@Table(name = "products")
 public class Product {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-    private String name;
-    private String description;
-    private BigDecimal price;
-    private Integer stockQuantity;
-    private String barcode;
+    private int id;
 
-    @ManyToOne
-    @JoinColumn(name = "category_id")
+    @Column(nullable = false, unique = true)
+    private String sku;
+
+    @Column(nullable = false)
+    private String name;
+
+    private String description;
+
+    @Column(name = "quantity_in_stock", nullable = false)
+    private int quantityInStock = 0;
+
+    @Column(name = "minimum_stock", nullable = false)
+    private int minimumStock = 0;
+
+    @Column(name = "cost_price", nullable = false)
+    private double costPrice;
+
+    private String location;
+
+    @Column(nullable = false)
+    private boolean active = true;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id", nullable = false)
     private Category category;
 
-    @ManyToOne
-    @JoinColumn(name = "supplier_id")
-    private Supplier supplier;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "default_supplier_id")
+    private Supplier defaultSupplier;
 
     @OneToMany(mappedBy = "product")
-    private List<SaleItem> saleItems = new ArrayList<>(); // ← Opcional
-
+    @ToString.Exclude
+    private Set<StockMovement> stockMovements;
 }

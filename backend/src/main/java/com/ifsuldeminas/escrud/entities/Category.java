@@ -1,30 +1,29 @@
 package com.ifsuldeminas.escrud.entities;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
+import java.util.Set;
 
-import java.util.ArrayList;
-import java.util.List;
-
-@Data
-@Entity
-@Builder
-@AllArgsConstructor
+@Getter
+@Setter
 @NoArgsConstructor
-@Table(name = "tb_category")
+@AllArgsConstructor
+@Builder
+@Entity
+@Table(name = "categories")
 public class Category {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private int id;
+
+    @Column(nullable = false, unique = true)
     private String name;
-    @Column(columnDefinition = "TEXT")
-    private String description;
+
+    @Column(nullable = false)
+    private boolean active = true;
 
     @OneToMany(mappedBy = "category")
-    private List<Product> products = new ArrayList<>();
-
+    @ToString.Exclude
+    private Set<Product> products;
 }
