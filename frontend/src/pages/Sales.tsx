@@ -401,12 +401,3 @@ const Sales: React.FC = () => {
 };
 
 export default Sales;
-
-/**
- * PRÓXIMA SEMANA SÓ DAR O PUSH NESSE ARQUIVO AQUI
- * 
- * git add .
- * git commit -m "feat: implementar relatório de vendas com filtros, PDF e Excel export"
- * git push origin main
- * 
- */
