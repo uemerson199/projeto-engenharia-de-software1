@@ -112,7 +112,7 @@ const POS: React.FC = () => {
         setCart([]);
         setShowPayment(false);
         setPaymentMethod('DINHEIRO');
-        await loadProducts(); // Reload to update stock
+        await loadProducts();
       } else {
         setErrors(result.errors || ['Erro ao finalizar venda']);
       }
@@ -132,8 +132,8 @@ const POS: React.FC = () => {
   if (isPageLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-        <span className="ml-2 text-gray-600">Carregando produtos...</span>
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600 dark:text-blue-300" />
+        <span className="ml-2 text-gray-600 dark:text-gray-300">Carregando produtos...</span>
       </div>
     );
   }
@@ -141,26 +141,28 @@ const POS: React.FC = () => {
   return (
     <div className="h-full">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">PDV - Ponto de Venda</h1>
-        <p className="text-gray-600">Operador: {user?.firstName} {user?.lastName}</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">PDV - Ponto de Venda</h1>
+        <p className="text-gray-600 dark:text-gray-300">Operador: {user?.firstName} {user?.lastName}</p>
       </div>
 
-      {/* Error Messages */}
       {errors.length > 0 && <ErrorMessage errors={errors} className="mb-4" />}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
-        {/* Product Search */}
+
+        {/* LEFT SIDE — PRODUCTS */}
         <div className="lg:col-span-2 space-y-4">
-          <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+
+          {/* Barcode */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
             <form onSubmit={handleBarcodeSubmit} className="flex space-x-2">
               <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
                 <input
                   type="text"
                   value={barcode}
                   onChange={(e) => setBarcode(e.target.value)}
                   placeholder="Digite ou escaneie o código de barras..."
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-lg text-gray-800 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500"
                   autoFocus
                 />
               </div>
@@ -173,23 +175,28 @@ const POS: React.FC = () => {
             </form>
           </div>
 
-          {/* Product Grid */}
-          <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Produtos Disponíveis</h3>
+          {/* Products GRID */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Produtos Disponíveis</h3>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
               {products.map((product) => (
                 <div
                   key={product.id}
                   onClick={() => addToCart(product)}
-                  className="p-3 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 cursor-pointer transition-colors"
+                  className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
                 >
-                  <h4 className="font-medium text-gray-900 text-sm">{product.name}</h4>
-                  <p className="text-xs text-gray-600 mb-2">{product.category.name}</p>
+                  <h4 className="font-medium text-gray-900 dark:text-gray-100 text-sm">
+                    {product.name}
+                  </h4>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+                    {product.category.name}
+                  </p>
                   <div className="flex justify-between items-center">
-                    <span className="text-lg font-bold text-green-600">
+                    <span className="text-lg font-bold text-green-600 dark:text-green-400">
                       R$ {product.price.toFixed(2)}
                     </span>
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
                       Est: {product.stockQuantity}
                     </span>
                   </div>
@@ -199,18 +206,20 @@ const POS: React.FC = () => {
           </div>
         </div>
 
-        {/* Cart */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-fit">
-          <div className="p-4 border-b border-gray-200">
+        {/* RIGHT SIDE — CART */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col h-fit">
+
+          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center">
                 <ShoppingCart className="w-5 h-5 mr-2" />
                 Carrinho ({cart.length})
               </h3>
+
               {cart.length > 0 && (
                 <button
                   onClick={clearCart}
-                  className="text-red-600 hover:text-red-800 text-sm"
+                  className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 text-sm"
                 >
                   Limpar
                 </button>
@@ -220,40 +229,44 @@ const POS: React.FC = () => {
 
           <div className="flex-1 p-4">
             {cart.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">
+              <p className="text-gray-500 dark:text-gray-400 text-center py-8">
                 Carrinho vazio
               </p>
             ) : (
               <div className="space-y-3">
                 {cart.map((item) => (
-                  <div key={item.product.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div key={item.product.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                     <div className="flex-1">
-                      <h4 className="font-medium text-gray-900 text-sm">
+                      <h4 className="font-medium text-gray-900 dark:text-gray-100 text-sm">
                         {item.product.name}
                       </h4>
-                      <p className="text-xs text-gray-600">
+                      <p className="text-xs text-gray-600 dark:text-gray-400">
                         R$ {item.product.price.toFixed(2)} cada
                       </p>
                     </div>
+
                     <div className="flex items-center space-x-2">
                       <button
                         onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
-                        className="w-6 h-6 bg-red-100 text-red-600 rounded text-xs hover:bg-red-200"
+                        className="w-6 h-6 bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-300 rounded text-xs hover:bg-red-200 dark:hover:bg-red-800"
                       >
                         -
                       </button>
-                      <span className="w-8 text-center text-sm font-medium">
+
+                      <span className="w-8 text-center text-sm font-medium text-gray-900 dark:text-gray-100">
                         {item.quantity}
                       </span>
+
                       <button
                         onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
-                        className="w-6 h-6 bg-green-100 text-green-600 rounded text-xs hover:bg-green-200"
+                        className="w-6 h-6 bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-300 rounded text-xs hover:bg-green-200 dark:hover:bg-green-800"
                       >
                         +
                       </button>
+
                       <button
                         onClick={() => removeFromCart(item.product.id)}
-                        className="ml-2 text-red-600 hover:text-red-800"
+                        className="ml-2 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -265,13 +278,16 @@ const POS: React.FC = () => {
           </div>
 
           {cart.length > 0 && (
-            <div className="p-4 border-t border-gray-200">
+            <div className="p-4 border-t border-gray-200 dark:border-gray-700">
               <div className="flex justify-between items-center mb-4">
-                <span className="text-lg font-semibold text-gray-900">Total:</span>
-                <span className="text-2xl font-bold text-green-600">
+                <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  Total:
+                </span>
+                <span className="text-2xl font-bold text-green-600 dark:text-green-400">
                   R$ {getTotalAmount().toFixed(2)}
                 </span>
               </div>
+
               <button
                 onClick={handleFinalizeSale}
                 className="w-full bg-green-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-green-700 transition-colors"
@@ -280,31 +296,40 @@ const POS: React.FC = () => {
               </button>
             </div>
           )}
+
         </div>
       </div>
 
-      {/* Payment Modal */}
+      {/* PAYMENT MODAL */}
       {showPayment && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Finalizar Pagamento</h2>
+        <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md border border-gray-200 dark:border-gray-700">
+            
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+              Finalizar Pagamento
+            </h2>
             
             <div className="mb-4">
-              <p className="text-gray-600 mb-2">Total da venda:</p>
-              <p className="text-2xl font-bold text-green-600">
+              <p className="text-gray-600 dark:text-gray-300 mb-2">Total da venda:</p>
+              <p className="text-2xl font-bold text-green-600 dark:text-green-400">
                 R$ {getTotalAmount().toFixed(2)}
               </p>
             </div>
 
             <div className="mb-6">
-              <p className="text-sm font-medium text-gray-700 mb-3">Método de Pagamento:</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Método de Pagamento:</p>
+              
               <div className="space-y-2">
+
                 {[
                   { value: 'DINHEIRO', label: 'Dinheiro', icon: Banknote },
                   { value: 'CARTAO', label: 'Cartão', icon: CreditCard },
                   { value: 'PIX', label: 'PIX', icon: Smartphone }
                 ].map((method) => (
-                  <label key={method.value} className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                  <label
+                    key={method.value}
+                    className="flex items-center space-x-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+                  >
                     <input
                       type="radio"
                       value={method.value}
@@ -312,21 +337,24 @@ const POS: React.FC = () => {
                       onChange={(e) => setPaymentMethod(e.target.value)}
                       className="text-blue-600"
                     />
-                    <method.icon className="w-5 h-5 text-gray-600" />
-                    <span className="text-gray-900">{method.label}</span>
+                    <method.icon className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                    <span className="text-gray-900 dark:text-gray-100">{method.label}</span>
                   </label>
                 ))}
+
               </div>
             </div>
 
             <div className="flex justify-end space-x-3">
+
               <button
                 onClick={() => setShowPayment(false)}
-                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                className="px-4 py-2 text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                 disabled={isLoading}
               >
                 Cancelar
               </button>
+
               <button
                 onClick={completeSale}
                 className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center"
@@ -335,10 +363,13 @@ const POS: React.FC = () => {
                 {isLoading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
                 {isLoading ? 'Processando...' : 'Confirmar Pagamento'}
               </button>
+
             </div>
+
           </div>
         </div>
       )}
+
     </div>
   );
 };
