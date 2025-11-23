@@ -16,7 +16,7 @@ import java.util.Set;
 @Builder
 @Entity
 @Table(name = "users")
-public class User implements UserDetails { // Implemente a interface
+public class User implements UserDetails {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -41,29 +41,24 @@ public class User implements UserDetails { // Implemente a interface
     @ToString.Exclude
     private Set<StockMovement> stockMovements;
 
-    // --- Métodos do UserDetails ---
-
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        // Define o 'role' do usuário para o Spring Security
         return List.of(new SimpleGrantedAuthority(role));
     }
 
     @Override
     public String getPassword() {
-        // Informa qual campo é a senha
         return passwordHash;
     }
 
     @Override
     public String getUsername() {
-        // Informa qual campo é o username (no nosso caso, 'login')
         return login;
     }
 
     @Override
     public boolean isAccountNonExpired() {
-        return true; // Pode definir lógicas de expiração aqui
+        return true;
     }
 
     @Override
@@ -78,7 +73,6 @@ public class User implements UserDetails { // Implemente a interface
 
     @Override
     public boolean isEnabled() {
-        // Usa o campo 'active' da nossa entidade
         return this.active;
     }
 }
