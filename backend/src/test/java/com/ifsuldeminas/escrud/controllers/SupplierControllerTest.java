@@ -23,8 +23,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(SupplierController.class)
 class SupplierControllerTest {
 
-    //forçando a execução do WorkFlow
-
     @Autowired
     private MockMvc mockMvc;
 
@@ -37,7 +35,8 @@ class SupplierControllerTest {
     @Test
     @DisplayName("GET /api/suppliers/{id} deve retornar um fornecedor completo")
     void testFindById() throws Exception {
-        SupplierDTO dto = new SupplierDTO(1L, "Fornecedor A", "Contato A", "123456", "a@a.com", "00.000.000/0000-00");
+        // Ajustado para o novo construtor: ID, Nome, ContactInfo, Active
+        SupplierDTO dto = new SupplierDTO(1L, "Fornecedor A", "Contato A", true);
 
         Mockito.when(supplierService.findById(1L)).thenReturn(dto);
 
@@ -45,18 +44,17 @@ class SupplierControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1L))
                 .andExpect(jsonPath("$.name").value("Fornecedor A"))
-                .andExpect(jsonPath("$.contactName").value("Contato A"))
-                .andExpect(jsonPath("$.phone").value("123456"))
-                .andExpect(jsonPath("$.email").value("a@a.com"))
-                .andExpect(jsonPath("$.cnpj").value("00.000.000/0000-00"));
+                .andExpect(jsonPath("$.contactInfo").value("Contato A")) // contactName virou contactInfo
+                .andExpect(jsonPath("$.active").value(true)); // Novo campo
+        // Removidos phone, email e cnpj
     }
 
     @Test
     @DisplayName("GET /api/suppliers deve retornar todos os fornecedores completos")
     void testFindAll() throws Exception {
         List<SupplierDTO> list = Arrays.asList(
-                new SupplierDTO(1L, "Fornecedor A", "Contato A", "123456", "a@a.com", "00.000.000/0000-00"),
-                new SupplierDTO(2L, "Fornecedor B", "Contato B", "654321", "b@b.com", "11.111.111/1111-11")
+                new SupplierDTO(1L, "Fornecedor A", "Contato A", true),
+                new SupplierDTO(2L, "Fornecedor B", "Contato B", true)
         );
 
         Mockito.when(supplierService.findAll()).thenReturn(list);
@@ -66,23 +64,19 @@ class SupplierControllerTest {
                 .andExpect(jsonPath("$.size()").value(2))
                 .andExpect(jsonPath("$[0].id").value(1L))
                 .andExpect(jsonPath("$[0].name").value("Fornecedor A"))
-                .andExpect(jsonPath("$[0].contactName").value("Contato A"))
-                .andExpect(jsonPath("$[0].phone").value("123456"))
-                .andExpect(jsonPath("$[0].email").value("a@a.com"))
-                .andExpect(jsonPath("$[0].cnpj").value("00.000.000/0000-00"))
+                .andExpect(jsonPath("$[0].contactInfo").value("Contato A"))
                 .andExpect(jsonPath("$[1].id").value(2L))
                 .andExpect(jsonPath("$[1].name").value("Fornecedor B"))
-                .andExpect(jsonPath("$[1].contactName").value("Contato B"))
-                .andExpect(jsonPath("$[1].phone").value("654321"))
-                .andExpect(jsonPath("$[1].email").value("b@b.com"))
-                .andExpect(jsonPath("$[1].cnpj").value("11.111.111/1111-11"));
+                .andExpect(jsonPath("$[1].contactInfo").value("Contato B"));
     }
 
     @Test
     @DisplayName("POST /api/suppliers deve criar um novo fornecedor completo")
     void testInsert() throws Exception {
-        SupplierDTO dtoToCreate = new SupplierDTO(null, "Novo Fornecedor", "Contato Novo", "999999", "novo@fornecedor.com", "22.222.222/2222-22");
-        SupplierDTO dtoCreated = new SupplierDTO(3L, "Novo Fornecedor", "Contato Novo", "999999", "novo@fornecedor.com", "22.222.222/2222-22");
+        // DTO de entrada (sem ID)
+        SupplierDTO dtoToCreate = new SupplierDTO(null, "Novo Fornecedor", "Contato Novo", true);
+        // DTO de saída (com ID gerado)
+        SupplierDTO dtoCreated = new SupplierDTO(3L, "Novo Fornecedor", "Contato Novo", true);
 
         Mockito.when(supplierService.insert(any(SupplierDTO.class))).thenReturn(dtoCreated);
 
@@ -93,17 +87,15 @@ class SupplierControllerTest {
                 .andExpect(header().string("Location", "http://localhost/api/suppliers/3"))
                 .andExpect(jsonPath("$.id").value(3L))
                 .andExpect(jsonPath("$.name").value("Novo Fornecedor"))
-                .andExpect(jsonPath("$.contactName").value("Contato Novo"))
-                .andExpect(jsonPath("$.phone").value("999999"))
-                .andExpect(jsonPath("$.email").value("novo@fornecedor.com"))
-                .andExpect(jsonPath("$.cnpj").value("22.222.222/2222-22"));
+                .andExpect(jsonPath("$.contactInfo").value("Contato Novo"))
+                .andExpect(jsonPath("$.active").value(true));
     }
 
     @Test
     @DisplayName("PUT /api/suppliers/{id} deve atualizar um fornecedor completo")
     void testUpdate() throws Exception {
-        SupplierDTO dtoToUpdate = new SupplierDTO(null, "Fornecedor Atualizado", "Contato Atualizado", "888888", "atualizado@fornecedor.com", "33.333.333/3333-33");
-        SupplierDTO dtoUpdated = new SupplierDTO(1L, "Fornecedor Atualizado", "Contato Atualizado", "888888", "atualizado@fornecedor.com", "33.333.333/3333-33");
+        SupplierDTO dtoToUpdate = new SupplierDTO(null, "Fornecedor Atualizado", "Contato Atualizado", true);
+        SupplierDTO dtoUpdated = new SupplierDTO(1L, "Fornecedor Atualizado", "Contato Atualizado", true);
 
         Mockito.when(supplierService.update(eq(1L), any(SupplierDTO.class))).thenReturn(dtoUpdated);
 
@@ -113,10 +105,7 @@ class SupplierControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1L))
                 .andExpect(jsonPath("$.name").value("Fornecedor Atualizado"))
-                .andExpect(jsonPath("$.contactName").value("Contato Atualizado"))
-                .andExpect(jsonPath("$.phone").value("888888"))
-                .andExpect(jsonPath("$.email").value("atualizado@fornecedor.com"))
-                .andExpect(jsonPath("$.cnpj").value("33.333.333/3333-33"));
+                .andExpect(jsonPath("$.contactInfo").value("Contato Atualizado"));
     }
 
     @Test
