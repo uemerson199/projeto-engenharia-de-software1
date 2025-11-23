@@ -2,6 +2,7 @@ package com.ifsuldeminas.escrud.controllers;
 
 import com.ifsuldeminas.escrud.dto.LoginRequestDTO;
 import com.ifsuldeminas.escrud.dto.LoginResponseDTO;
+import com.ifsuldeminas.escrud.dto.RegisterRequestDTO;
 import com.ifsuldeminas.escrud.entities.User;
 import com.ifsuldeminas.escrud.repositories.UserRepository;
 import com.ifsuldeminas.escrud.service.JwtService;
@@ -9,29 +10,26 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
 public class AuthController {
 
-    // Injetando as dependências que configuramos
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequestDTO loginRequest) {
-        
-        // 1. Autenticar o usuário
-        // O Spring Security vai usar o UserDetailsService e o PasswordEncoder
-        // que configuramos no SecurityConfig para validar o login e senha.
-        // Se a autenticação falhar, ele lança uma exceção (que o Spring trata
-        // e retorna um erro 401 ou 403).
+    public ResponseEntity<LoginResponseDTO> login(@RequestBody LoginRequestDTO loginRequest) {
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         loginRequest.login(),
@@ -39,16 +37,11 @@ public class AuthController {
                 )
         );
 
-        // 2. Se a autenticação foi bem-sucedida, buscar o usuário
-        // Usamos '.orElseThrow()' para garantir que o usuário existe
-        // (o que é garantido pela autenticação acima)
         User user = userRepository.findByLogin(loginRequest.login())
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado após autenticação"));
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // 3. Gerar o Token JWT
         String token = jwtService.generateToken(user);
 
-        // 4. Criar o DTO de Resposta
         LoginResponseDTO response = new LoginResponseDTO(
                 token,
                 user.getId(),
@@ -56,7 +49,33 @@ public class AuthController {
                 user.getRole()
         );
 
-        // 5. Retornar a resposta com o token
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/register")
+    public ResponseEntity<LoginResponseDTO> register(@RequestBody RegisterRequestDTO registerRequest) {
+
+        if (this.userRepository.findByLogin(registerRequest.login()).isPresent()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        User newUser = new User();
+        newUser.setName(registerRequest.name());
+        newUser.setLogin(registerRequest.login());
+        newUser.setPasswordHash(passwordEncoder.encode(registerRequest.password()));
+        newUser.setRole(registerRequest.role());
+
+        this.userRepository.save(newUser);
+
+        String token = this.jwtService.generateToken(newUser);
+
+        LoginResponseDTO response = new LoginResponseDTO(
+                token,
+                newUser.getId(),
+                newUser.getName(),
+                newUser.getRole()
+        );
+
         return ResponseEntity.ok(response);
     }
 }

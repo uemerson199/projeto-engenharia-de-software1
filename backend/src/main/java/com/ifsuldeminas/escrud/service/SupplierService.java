@@ -24,7 +24,7 @@ public class SupplierService {
 
     @Transactional(readOnly = true)
     public SupplierDTO findById(Long id) {
-        Supplier supplier = supplierRepository.findById(id).orElseThrow(
+        Supplier supplier = supplierRepository.findById((long) id.intValue()).orElseThrow(
                 () -> new ResourceNotFoundException("Fornecedor não encontrado com o ID: " + id));
         return new SupplierDTO(supplier);
     }
@@ -39,6 +39,9 @@ public class SupplierService {
     public SupplierDTO insert(SupplierDTO dto) {
         Supplier entity = new Supplier();
         copyDtoToEntity(dto, entity);
+        if (dto.getActive() != null) {
+            entity.setActive(dto.getActive());
+        }
         entity = supplierRepository.save(entity);
         return new SupplierDTO(entity);
     }
@@ -46,8 +49,12 @@ public class SupplierService {
     @Transactional
     public SupplierDTO update(Long id, SupplierDTO dto) {
         try {
-            Supplier entity = supplierRepository.getReferenceById(id);
+            // Conversão de Long para int
+            Supplier entity = supplierRepository.getReferenceById((long) id.intValue());
             copyDtoToEntity(dto, entity);
+            if (dto.getActive() != null) {
+                entity.setActive(dto.getActive());
+            }
             entity = supplierRepository.save(entity);
             return new SupplierDTO(entity);
         } catch (EntityNotFoundException e) {
@@ -56,11 +63,11 @@ public class SupplierService {
     }
 
     public void delete(Long id) {
-        if (!supplierRepository.existsById(id)) {
+        if (!supplierRepository.existsById((long) id.intValue())) {
             throw new ResourceNotFoundException("Recurso não encontrado com o ID: " + id);
         }
         try {
-            supplierRepository.deleteById(id);
+            supplierRepository.deleteById((long) id.intValue());
         }
         catch (DataIntegrityViolationException e) {
             throw new DatabaseException("Violação de integridade: este fornecedor não pode ser excluído.");
@@ -69,9 +76,6 @@ public class SupplierService {
 
     private void copyDtoToEntity(SupplierDTO dto, Supplier entity) {
         entity.setName(dto.getName());
-        entity.setContactName(dto.getContactName());
-        entity.setPhone(dto.getPhone());
-        entity.setEmail(dto.getEmail());
-        entity.setCnpj(dto.getCnpj());
+        entity.setContactInfo(dto.getContactInfo());
     }
 }

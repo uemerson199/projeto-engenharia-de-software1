@@ -68,12 +68,12 @@ public class User implements UserDetails { // Implemente a interface
 
     @Override
     public boolean isAccountNonLocked() {
-        return true; // Pode definir lógicas de bloqueio aqui
+        return true;
     }
 
     @Override
     public boolean isCredentialsNonExpired() {
-        return true; // Pode definir lógicas de expiração de credencial
+        return true;
     }
 
     @Override
