@@ -49,7 +49,6 @@ public class SupplierService {
     @Transactional
     public SupplierDTO update(Long id, SupplierDTO dto) {
         try {
-            // Conversão de Long para int
             Supplier entity = supplierRepository.getReferenceById((long) id.intValue());
             copyDtoToEntity(dto, entity);
             if (dto.getActive() != null) {
