@@ -1,80 +1,72 @@
 package com.ifsuldeminas.escrud.service;
-
-import com.ifsuldeminas.escrud.dto.SupplierDTO;
+import com.ifsuldeminas.escrud.dto.SupplierRequestDTO;
+import com.ifsuldeminas.escrud.dto.SupplierResponseDTO;
 import com.ifsuldeminas.escrud.entities.Supplier;
 import com.ifsuldeminas.escrud.repositories.SupplierRepository;
-import com.ifsuldeminas.escrud.service.exceptions.DatabaseException;
-import com.ifsuldeminas.escrud.service.exceptions.ResourceNotFoundException;
 import jakarta.persistence.EntityNotFoundException;
-import org.springframework.dao.DataIntegrityViolationException;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.util.List;
-import java.util.stream.Collectors;
-
 @Service
+@RequiredArgsConstructor
 public class SupplierService {
-
-    private final SupplierRepository supplierRepository;
-
-    public SupplierService(SupplierRepository supplierRepository) {
-        this.supplierRepository = supplierRepository;
+    private final SupplierRepository repository;
+    public Page<SupplierResponseDTO> findAll(Pageable pageable, String name) {
+        Page<Supplier> page;
+        if (name != null && !name.isBlank()) {
+            page = repository.findByNameContainingIgnoreCase(name, pageable);
+        } else {
+            page = repository.findAll(pageable);
+        }
+        return page.map(this::mapToDTO);
     }
-
-    @Transactional(readOnly = true)
-    public SupplierDTO findById(Long id) {
-        Supplier supplier = supplierRepository.findById((long) id.intValue()).orElseThrow(
-                () -> new ResourceNotFoundException("Fornecedor não encontrado com o ID: " + id));
-        return new SupplierDTO(supplier);
+    public List<SupplierResponseDTO> findAllActive() {
+        return repository.findByActiveTrue().stream()
+                .map(this::mapToDTO)
+                .toList();
     }
-
-    @Transactional(readOnly = true)
-    public List<SupplierDTO> findAll() {
-        List<Supplier> list = supplierRepository.findAll();
-        return list.stream().map(SupplierDTO::new).collect(Collectors.toList());
+    public SupplierResponseDTO findById(Long id) {
+        Supplier entity = repository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Supplier not found with id: " +
+                        id));
+        return mapToDTO(entity);
     }
-
-    @Transactional
-    public SupplierDTO insert(SupplierDTO dto) {
+    public SupplierResponseDTO create(SupplierRequestDTO dto) {
+// Validação simples de nome único
+        if (repository.existsByName(dto.name())) {
+            throw new IllegalArgumentException("Supplier name already exists");
+        }
         Supplier entity = new Supplier();
-        copyDtoToEntity(dto, entity);
-        if (dto.getActive() != null) {
-            entity.setActive(dto.getActive());
-        }
-        entity = supplierRepository.save(entity);
-        return new SupplierDTO(entity);
+        entity.setName(dto.name());
+        entity.setContactInfo(dto.contactInfo());
+        entity.setActive(true);
+        return mapToDTO(repository.save(entity));
     }
-
-    @Transactional
-    public SupplierDTO update(Long id, SupplierDTO dto) {
-        try {
-            Supplier entity = supplierRepository.getReferenceById((long) id.intValue());
-            copyDtoToEntity(dto, entity);
-            if (dto.getActive() != null) {
-                entity.setActive(dto.getActive());
-            }
-            entity = supplierRepository.save(entity);
-            return new SupplierDTO(entity);
-        } catch (EntityNotFoundException e) {
-            throw new ResourceNotFoundException("Recurso não encontrado com o ID: " + id);
+    public SupplierResponseDTO update(Long id, SupplierRequestDTO dto) {
+        Supplier entity = repository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Supplier not found"));
+        if (!entity.getName().equalsIgnoreCase(dto.name()) &&
+                repository.existsByName(dto.name())) {
+            throw new IllegalArgumentException("Supplier name already exists");
         }
+        entity.setName(dto.name());
+        entity.setContactInfo(dto.contactInfo());
+        return mapToDTO(repository.save(entity));
     }
-
     public void delete(Long id) {
-        if (!supplierRepository.existsById((long) id.intValue())) {
-            throw new ResourceNotFoundException("Recurso não encontrado com o ID: " + id);
-        }
-        try {
-            supplierRepository.deleteById((long) id.intValue());
-        }
-        catch (DataIntegrityViolationException e) {
-            throw new DatabaseException("Violação de integridade: este fornecedor não pode ser excluído.");
-        }
+        Supplier entity = repository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Supplier not found"));
+        entity.setActive(false);
+        repository.save(entity);
     }
-
-    private void copyDtoToEntity(SupplierDTO dto, Supplier entity) {
-        entity.setName(dto.getName());
-        entity.setContactInfo(dto.getContactInfo());
+    private SupplierResponseDTO mapToDTO(Supplier entity) {
+        return new SupplierResponseDTO(
+                entity.getId(),
+                entity.getName(),
+                entity.getContactInfo(),
+                entity.isActive()
+        );
     }
 }

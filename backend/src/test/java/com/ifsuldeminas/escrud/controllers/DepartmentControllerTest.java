@@ -1,9 +1,9 @@
 package com.ifsuldeminas.escrud.controllers;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ifsuldeminas.escrud.dto.SupplierRequestDTO;
-import com.ifsuldeminas.escrud.dto.SupplierResponseDTO;
-import com.ifsuldeminas.escrud.service.SupplierService;
+import com.ifsuldeminas.escrud.dto.DepartmentRequestDTO;
+import com.ifsuldeminas.escrud.dto.DepartmentResponseDTO;
+import com.ifsuldeminas.escrud.service.DepartmentService;
 import com.ifsuldeminas.escrud.service.JwtService; // Import necessário
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,29 +19,29 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(SupplierController.class)
+@WebMvcTest(DepartmentController.class)
 @AutoConfigureMockMvc(addFilters = false)
-class SupplierControllerTest {
+class DepartmentControllerTest {
 
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
 
-    @MockitoBean private SupplierService service;
+    @MockitoBean private DepartmentService service;
 
     // ADICIONADO: O Mock do JwtService para o filtro de segurança não quebrar
     @MockitoBean private JwtService jwtService;
 
     @Test
-    void create_ShouldReturnSupplier() throws Exception {
-        SupplierRequestDTO req = new SupplierRequestDTO("Coca-Cola", "coca@email.com");
-        SupplierResponseDTO resp = new SupplierResponseDTO(1L, "Coca-Cola", "coca@email.com", true);
+    void create_ShouldReturnDepartment() throws Exception {
+        DepartmentRequestDTO req = new DepartmentRequestDTO("RH");
+        DepartmentResponseDTO resp = new DepartmentResponseDTO(1, "RH", true);
 
-        when(service.create(any(SupplierRequestDTO.class))).thenReturn(resp);
+        when(service.create(any(DepartmentRequestDTO.class))).thenReturn(resp);
 
-        mockMvc.perform(post("/api/suppliers")
+        mockMvc.perform(post("/api/departments")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.name").value("Coca-Cola"));
+                .andExpect(jsonPath("$.name").value("RH"));
     }
 }
