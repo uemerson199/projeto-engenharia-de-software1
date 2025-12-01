@@ -26,7 +26,7 @@ public class StockMovement {
     private MovementType type;
 
     @Column(nullable = false)
-    private int quantity; // Pode ser positivo ou negativo
+    private int quantity;
 
     private String reason;
 
