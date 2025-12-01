@@ -2,6 +2,7 @@ package com.ifsuldeminas.escrud.entities;
 
 import jakarta.persistence.*;
 import lombok.*;
+
 import java.time.LocalDateTime;
 
 @Getter
@@ -15,40 +16,33 @@ public class StockMovement {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private int id;
+    private Long id;
 
     @Column(nullable = false)
-    private LocalDateTime timestamp;
+    private LocalDateTime dateTime;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private MovementType type;
 
     @Column(nullable = false)
-    private int quantity;
+    private int quantity; // Pode ser positivo ou negativo
 
     private String reason;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
-
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne
     @JoinColumn(name = "department_id")
     private Department department;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne
     @JoinColumn(name = "supplier_id")
     private Supplier supplier;
 
-    @PrePersist
-    protected void onCreate() {
-        if (timestamp == null) {
-            timestamp = LocalDateTime.now();
-        }
-    }
+    @ManyToOne
+    @JoinColumn(name = "user_id")
+    private User user;
 }
