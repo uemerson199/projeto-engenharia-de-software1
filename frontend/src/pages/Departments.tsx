@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../services/api';
-import type { Category, Page } from '../types';
+import type { Department, Page } from '../types';
 import { Modal } from '../components/ui/Modal';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -8,8 +8,8 @@ import { Table } from '../components/ui/Table';
 import { Pagination } from '../components/ui/Pagination';
 import { Plus, Search, Edit2, Trash2 } from 'lucide-react';
 
-export function Categories() {
-  const [categories, setCategories] = useState<Page<Category>>({
+export function Departments() {
+  const [departments, setDepartments] = useState<Page<Department>>({
     content: [],
     totalElements: 0,
     totalPages: 0,
@@ -18,7 +18,7 @@ export function Categories() {
   });
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(0);
 
@@ -29,31 +29,31 @@ export function Categories() {
   });
 
   useEffect(() => {
-    loadCategories();
+    loadDepartments();
   }, [currentPage, searchTerm]);
 
-  const loadCategories = async () => {
+  const loadDepartments = async () => {
     try {
       setLoading(true);
-      const result = await api.getCategories(currentPage, 20, searchTerm);
-      setCategories(result);
+      const result = await api.getDepartments(currentPage, 20, searchTerm);
+      setDepartments(result);
     } catch (error) {
-      console.error('Failed to load categories:', error);
+      console.error('Failed to load departments:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleOpenModal = (category?: Category) => {
-    if (category) {
-      setEditingCategory(category);
+  const handleOpenModal = (department?: Department) => {
+    if (department) {
+      setEditingDepartment(department);
       setFormData({
-        name: category.name,
-        description: category.description,
-        active: category.active,
+        name: department.name,
+        description: department.description,
+        active: department.active,
       });
     } else {
-      setEditingCategory(null);
+      setEditingDepartment(null);
       setFormData({
         name: '',
         description: '',
@@ -66,27 +66,27 @@ export function Categories() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      if (editingCategory) {
-        await api.updateCategory(editingCategory.id, formData);
+      if (editingDepartment) {
+        await api.updateDepartment(editingDepartment.id, formData);
       } else {
-        await api.createCategory(formData);
+        await api.createDepartment(formData);
       }
       setModalOpen(false);
-      loadCategories();
+      loadDepartments();
     } catch (error) {
-      console.error('Failed to save category:', error);
-      alert('Erro ao salvar categoria');
+      console.error('Failed to save department:', error);
+      alert('Erro ao salvar departamento');
     }
   };
 
   const handleDelete = async (id: number) => {
-    if (window.confirm('Tem certeza que deseja excluir esta categoria?')) {
+    if (window.confirm('Tem certeza que deseja excluir este departamento?')) {
       try {
-        await api.deleteCategory(id);
-        loadCategories();
+        await api.deleteDepartment(id);
+        loadDepartments();
       } catch (error) {
-        console.error('Failed to delete category:', error);
-        alert('Erro ao excluir categoria');
+        console.error('Failed to delete department:', error);
+        alert('Erro ao excluir departamento');
       }
     }
   };
@@ -97,7 +97,7 @@ export function Categories() {
     {
       key: 'active',
       header: 'Status',
-      render: (item: Category) => (
+      render: (item: Department) => (
         <span
           className={`px-2 py-1 text-xs font-medium rounded ${
             item.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
@@ -110,7 +110,7 @@ export function Categories() {
     {
       key: 'actions',
       header: 'Ações',
-      render: (item: Category) => (
+      render: (item: Department) => (
         <div className="flex gap-2">
           <button
             onClick={(e) => {
@@ -138,10 +138,10 @@ export function Categories() {
   return (
     <div>
       <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Categorias</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Departamentos</h1>
         <Button onClick={() => handleOpenModal()}>
           <Plus size={20} className="mr-2" />
-          Nova Categoria
+          Novo Departamento
         </Button>
       </div>
 
@@ -151,7 +151,7 @@ export function Categories() {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
             <input
               type="text"
-              placeholder="Buscar categorias..."
+              placeholder="Buscar departamentos..."
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
@@ -168,11 +168,11 @@ export function Categories() {
           </div>
         ) : (
           <>
-            <Table data={categories.content} columns={columns} />
-            {categories.totalPages > 1 && (
+            <Table data={departments.content} columns={columns} />
+            {departments.totalPages > 1 && (
               <Pagination
                 currentPage={currentPage}
-                totalPages={categories.totalPages}
+                totalPages={departments.totalPages}
                 onPageChange={setCurrentPage}
               />
             )}
@@ -183,7 +183,7 @@ export function Categories() {
       <Modal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={editingCategory ? 'Editar Categoria' : 'Nova Categoria'}
+        title={editingDepartment ? 'Editar Departamento' : 'Novo Departamento'}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
@@ -214,7 +214,7 @@ export function Categories() {
               className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
             />
             <label htmlFor="active" className="text-sm font-medium text-gray-700">
-              Categoria Ativa
+              Departamento Ativo
             </label>
           </div>
 
@@ -223,7 +223,7 @@ export function Categories() {
               Cancelar
             </Button>
             <Button type="submit">
-              {editingCategory ? 'Atualizar' : 'Criar'}
+              {editingDepartment ? 'Atualizar' : 'Criar'}
             </Button>
           </div>
         </form>
