@@ -16,7 +16,9 @@ import java.util.List;
 @RequestMapping("/api/products")
 @RequiredArgsConstructor
 public class ProductController {
+
     private final ProductService service;
+
     @GetMapping
     public ResponseEntity<Page<ProductResponseDTO>> findAll(
             @PageableDefault(size = 20, sort = "name") Pageable pageable,
@@ -25,14 +27,17 @@ public class ProductController {
             @RequestParam(required = false) Boolean active) {
         return ResponseEntity.ok(service.findAll(pageable, name, sku, active));
     }
+
     @GetMapping("/all")
     public ResponseEntity<List<ProductMinDTO>> findAllActiveList() {
         return ResponseEntity.ok(service.findAllActiveList());
     }
+
     @GetMapping("/{id}")
     public ResponseEntity<ProductResponseDTO> findById(@PathVariable Long id) {
         return ResponseEntity.ok(service.findById(id));
     }
+
     @PostMapping
     public ResponseEntity<ProductResponseDTO> create(@RequestBody
                                                      ProductRequestDTO dto) {
@@ -43,11 +48,13 @@ public class ProductController {
                 .toUri();
         return ResponseEntity.created(uri).body(saved);
     }
+
     @PutMapping("/{id}")
     public ResponseEntity<ProductResponseDTO> update(@PathVariable Long id,
                                                      @RequestBody ProductRequestDTO dto) {
         return ResponseEntity.ok(service.update(id, dto));
     }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         service.delete(id);

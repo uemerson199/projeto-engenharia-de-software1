@@ -16,20 +16,24 @@ import java.util.List;
 @RequiredArgsConstructor
 public class CategoryController {
     private final CategoryService service;
+
     @GetMapping
     public ResponseEntity<Page<CategoryResponseDTO>> findAll(
             @PageableDefault(size = 20, sort = "name") Pageable pageable,
             @RequestParam(required = false) String name) {
         return ResponseEntity.ok(service.findAll(pageable, name));
     }
+
     @GetMapping("/active")
     public ResponseEntity<List<CategoryResponseDTO>> findAllActive() {
         return ResponseEntity.ok(service.findAllActive());
     }
+
     @GetMapping("/{id}")
     public ResponseEntity<CategoryResponseDTO> findById(@PathVariable int id) {
         return ResponseEntity.ok(service.findById(id));
     }
+
     @PostMapping
     public ResponseEntity<CategoryResponseDTO> create(@RequestBody
                                                       CategoryRequestDTO dto) {
@@ -40,11 +44,13 @@ public class CategoryController {
                 .toUri();
         return ResponseEntity.created(uri).body(saved);
     }
+
     @PutMapping("/{id}")
     public ResponseEntity<CategoryResponseDTO> update(@PathVariable int id,
                                                       @RequestBody CategoryRequestDTO dto) {
         return ResponseEntity.ok(service.update(id, dto));
     }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable int id) {
         service.delete(id);
